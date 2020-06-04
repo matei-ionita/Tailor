@@ -1,0 +1,28 @@
+Package: Tailor
+Type: Package
+Title: GMM modeling for heavy-tail distributions
+Version: 0.1.0
+Author: Matei Ionita
+Maintainer: Matei Ionita <matei.ionita@gmail.com>
+Description: Tailor does lots of cool stuff.
+License: GPL-3
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+biocViews:
+Depends: 
+    R (>= 3.4.0),
+    flowCore (>= 1.42.0)
+Imports: 
+    flowCore,
+    wadeTools, 
+    cluster,
+    KernSmooth,
+    Rtsne
+Remotes:
+    bioc::release/flowCore,
+    bioc::release/flowFP,
+    rogerswt/wadeTools
+RoxygenNote: 7.0.2
+Suggests: knitr, rmarkdown
+VignetteBuilder: knitr
