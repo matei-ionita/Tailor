@@ -543,10 +543,12 @@ inspect_1D_mixtures = function(data, mixtures_1D, params)
 
 
 #' @title categorical_labelling
-#' @description
+#' @description If major phenotype definitions are available (e.g. "CD4 Naive"),
+#' based on only a few of the markers
+#' in the panel, label each categorical cluster by one of these major phenotypes.
 #' @param categorical_clusters Information about categorical clusters obtained from a tailor
 #' object.
-#' @param defs A matrix or data frame giving definitions of major phenotypes (e.g. "CD4 Naive").
+#' @param defs A matrix or data frame giving definitions of major phenotypes.
 #' @param params A list of markers to use; must be subset of colnames(data).
 #' @return WRITE THIS.
 #' @export

@@ -10,7 +10,7 @@ categorical_labeling(categorical_clusters, defs, params)
 \item{categorical_clusters}{Information about categorical clusters obtained from a tailor
 object.}
 
-\item{defs}{A matrix or data frame giving definitions of major phenotypes (e.g. "CD4 Naive").}
+\item{defs}{A matrix or data frame giving definitions of major phenotypes.}
 
 \item{params}{A list of markers to use; must be subset of colnames(data).}
 }
@@ -18,5 +18,7 @@ object.}
 WRITE THIS.
 }
 \description{
-categorical_labelling
+If major phenotype definitions are available (e.g. "CD4 Naive"),
+based on only a few of the markers
+in the panel, label each categorical cluster by one of these major phenotypes.
 }
