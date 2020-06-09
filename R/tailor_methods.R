@@ -311,6 +311,7 @@ tailor.predict = function(data, tailor_obj, n_batch = 64,
       end_batch = batch * batch_size
       if (batch == n_batch) { end_batch = n }
 
+
       batch_data = data[c(start_batch:end_batch),params]
 
       # For each cluster, compute the probability that data in current batch
@@ -324,6 +325,7 @@ tailor.predict = function(data, tailor_obj, n_batch = 64,
         sigma = tailor_obj$mixture$variance$sigma[,,cl]
         posteriors[,cl] = weight * dmvnorm(batch_data, mean, sigma)
       }
+
 
       # Assign each datapoint to the cluster of maximum probability
       mapping[c(start_batch:end_batch)] = apply(posteriors, 1, which.max)
@@ -380,7 +382,6 @@ get_1D_mixtures = function(data, params, max_mixture = 3,
     sel = sample(nrow(data), sample_size)
   }
 
-
   if (parallel)
   {
     #setup parallel backend to use many processors
@@ -388,6 +389,7 @@ get_1D_mixtures = function(data, params, max_mixture = 3,
     cl <- makeCluster(cores[1])
     # cl <- makeCluster(1) # For debugging only: similar to unparallelized version, with 10% overhead
     registerDoParallel(cl)
+
 
     if (verbose) cat("Learning", length(params), "1D mixtures in parallel...")
 
@@ -550,13 +552,6 @@ inspect_1D_mixtures = function(data, mixtures_1D, params)
 #' @export
 categorical_labeling = function(categorical_clusters, defs, params)
 {
-  #################################################
-  # Take input the list of categorical clusters
-  # and definitions of major phenotypes (e.g. naive
-  # CD4 cells). Label each cluster by one major
-  # phenotype, or unknown.
-  #################################################
-
   n = length(cats$categs)
   cats[["labels"]] = vector(mode = "character", length = n)
   labs = rownames(defs)
@@ -589,7 +584,6 @@ categorical_labeling = function(categorical_clusters, defs, params)
       }
     }
   }
-
   cats
 }
 
