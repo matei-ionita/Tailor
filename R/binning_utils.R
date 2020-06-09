@@ -9,28 +9,28 @@
 
 
 ################################################################################ 
-# Given a partition of the data into "phenoboxes", i.e. boxes determined by 1D 
+# Given a partition of the data into "phenobins", i.e. bins determined by 1D 
 # mixture modelling across each individual variable, find the mean and variance 
-# of each phenobox. 
+# of each phenobin. 
 # 
 # Input: 
 #       data: a matrix with events along rows and variables along columns 
-#       predictions: a vector of length = nrow(data), phenobox assignment for each event 
-#       boxes: those boxes for which information should be computed (computing variances 
-#             for more than 100k or so boxes may cause memory issues) 
-#       sizes: a vector of length = length(boxes), counting the events in each box 
+#       predictions: a vector of length = nrow(data), phenobin assignment for each event 
+#       bins: those bins for which information should be computed (computing variances 
+#             for more than 100k or so bins may cause memory issues) 
+#       sizes: a vector of length = length(bins), counting the events in each box 
 #       params: parameters to use 
 #       compute_var: boolean flag; if true, computes variance in addition to mean 
 #       verbose: boolean flag; if true, prints information at checkpoints 
 # Output: list with two elements: 
-#       means: matrix of dim = (length(boxes), length(params)); 
+#       means: matrix of dim = (length(bins), length(params)); 
 #             rows are means of events in a box 
-#       variance: matrix of dim = (length(boxes), length(params), length(params)); 
+#       variance: matrix of dim = (length(bins), length(params), length(params)); 
 #             slices are variances of events in a box 
 ################################################################################ 
 
-find_phenobox_mean = function(data, predictions, 
-                              boxes, sizes,  
+find_phenobin_mean = function(data, predictions, 
+                              bins, sizes,  
                               params, selected, 
                               split_threshold = NULL, 
                               compute_var = FALSE,
@@ -42,7 +42,7 @@ find_phenobox_mean = function(data, predictions,
   set.seed(seed)
   
   n = nrow(data) 
-  k = length(boxes) 
+  k = length(bins) 
   d = length(params) 
   
   if(is.null(split_threshold)) 
@@ -69,7 +69,7 @@ find_phenobox_mean = function(data, predictions,
   # Initialize lists of indices with appropriate size 
   for (i in c(1:k)) 
   { 
-    box = boxes[i] 
+    box = bins[i] 
     idx[[box]] = integer(length = sizes[i]) 
     counts[[box]] = 0 
   } 
@@ -99,10 +99,8 @@ find_phenobox_mean = function(data, predictions,
     
     
     # Split each box until it has fewer than split_threshold events; compute their means 
-    box = boxes[i] 
+    box = bins[i] 
     sel = idx[[box]] 
-    
-    if (i < 20) { cat(i, length(sel), "\n") }
     
     if (n_repr[i] == 1) 
     { 
@@ -180,168 +178,6 @@ find_phenobox_mean = function(data, predictions,
 } 
 
 
-
-
-
-############################################## 
-# Do mixture modelling for individual parameters 
-# To save time, learn model on a subsample, then extend to all data 
-############################################## 
-
-# Compute 1D Gaussian mixture models for each parameter 
-# Using a modified version of BIC to choose 1 <= k <= max_mixture 
-# Modification favors smaller k 
-get_1D_mixtures = function(data, params, max_mixture = 3,  
-                           prior_BIC = 600, sample_size = NULL, seed = 135, 
-                           parallel = FALSE,
-                           verbose = FALSE) 
-{ 
-  start.time = Sys.time() 
-  
-  # Keep all data, or sample a subset to speed up 
-  set.seed(seed) 
-  if (is.null(sample_size)) 
-  { 
-    sel = c(1:nrow(data)) 
-  } else 
-  { 
-    sel = sample(nrow(data), sample_size) 
-  } 
-  
-  
-  if (parallel)
-  {
-    #setup parallel backend to use many processors
-    cores=detectCores()
-    cl <- makeCluster(cores[1])
-    # cl <- makeCluster(1) # For debugging only: similar to unparallelized version, with 10% overhead
-    registerDoParallel(cl)
-    
-    if (verbose) cat("Learning", length(params), "1D mixtures in parallel...")
-    
-    fit_list = foreach (data_param = iter(data[sel,], by = 'col'), .packages = c("mclust")) %dopar%
-    { 
-      param = colnames(data_param)[1]
-
-      set.seed(seed)
-      
-      # Use Bayesian information criterion to choose best k 
-      BIC = mclustBIC(data_param, G = 1:max_mixture, model = "V", verbose = FALSE) 
-      
-      # A tweak to favor smaller k 
-      for (k in c(1:max_mixture)) 
-      { 
-        BIC[k] = BIC[k] - prior_BIC*k*log(length(data_param), base = 2) 
-      } 
-      
-      # Fit the model with the chosen k
-      fit = Mclust(data_param, x=BIC, verbose = FALSE)
-      fit$parameters
-    }
-    names(fit_list) = params
-    
-    #stop cluster
-    stopCluster(cl)
-  } else
-  {
-    fit_list = list() 
-    
-    if(verbose) cat("Learning", length(params), "1D mixtures sequentially: ")
-    
-    for (param in params) 
-    { 
-      if (verbose) {cat(param, " ")} 
-      
-      dat = data[sel,param] 
-      
-      set.seed(seed)
-      
-      # Use Bayesian information criterion to choose best k 
-      BIC = mclustBIC(dat, G = 1:max_mixture, model = "V", verbose = FALSE) 
-      
-      # A tweak to favor smaller k 
-      for (k in c(1:max_mixture)) 
-      { 
-        BIC[k] = BIC[k] - prior_BIC*k*log(length(dat), base = 2) 
-      } 
-      
-      # Fit the model with the chosen k
-      fit = Mclust(dat, x=BIC, verbose = FALSE)
-      fit_list[[param]] = fit$parameters
-    } 
-  }
-  
-  gc()
-  
-  end.time = Sys.time() 
-  if(verbose) {cat("\n")} 
-  if(verbose) {print(end.time - start.time)} 
-  
-  fit_list 
-} 
-
-
-get_1D_mixtures_manual = function(data, params, k = 3,  
-                                  sample_size = NULL, seed = 135, 
-                                  separate_neg = FALSE, 
-                                  verbose = FALSE) 
-{ 
-  start.time = Sys.time() 
-  fit_list = list() 
-  
-  set.seed(seed) 
-  # Keep all data, or sample a subset to speed up 
-  if (is.null(sample_size)) 
-  { 
-    sel = c(1:nrow(data)) 
-  } else 
-  { 
-    sel = sample(nrow(data), sample_size) 
-  } 
-  
-  for (param in params) 
-  { 
-    if (verbose) {cat(param, " ")} 
-    
-    dat = data[sel,param] 
-    
-    # If flag is true, get rid of negative values, which are compensation artifacts 
-    if (separate_neg) 
-    { 
-      negatives = dat[which(dat < 0)] 
-      dat = dat[which(dat > 0)] 
-    } 
-    
-    # Fit the model with the chosen k 
-    fit = Mclust(dat, G = k, modelNames = "V", verbose = FALSE) 
-    fit_list[[param]] = fit$parameters 
-    
-    # If flag is true, model negative population separately, and add to mixture list 
-    if (separate_neg) 
-    { 
-      fit = Mclust(negatives, G = 1, modelNames = "V", verbose = FALSE) 
-      fit_list[[param]]$pro = c(fit$parameters$pro, fit_list[[param]]$pro) 
-      fit_list[[param]]$mean = c(fit$parameters$mean, fit_list[[param]]$mean) 
-      fit_list[[param]]$variance$sigmasq = c(fit$parameters$variance$sigmasq,  
-                                             fit_list[[param]]$variance$sigmasq) 
-      fit_list[[param]]$variance$scale = c(fit$parameters$variance$scale,  
-                                           fit_list[[param]]$variance$scale) 
-      
-      # Rescale mixture proportions 
-      ln = length(negatives) 
-      lp = length(dat) 
-      
-      fit_list[[param]]$pro[1] = fit_list[[param]]$pro[1] * ln / (ln + lp) 
-      fit_list[[param]]$pro[c(2:(k+1))] = fit_list[[param]]$pro[c(2:(k+1))] * lp / (ln + lp) 
-    } 
-  } 
-  
-  end.time = Sys.time() 
-  if(verbose) {cat("\n")} 
-  if(verbose) {print(end.time - start.time)} 
-  
-  fit_list 
-} 
 
 
 # Find pairs of mixture components that represent the same biological population 
@@ -439,9 +275,6 @@ mapping_from_mixtures = function(data, mixtures, to_merge, params,
           } 
         }
         
-        # # Put together the class assignments for all parameters 
-        # col_list = c(col_list, param) 
-        
         # The class assignment is given by the maximum posterior probability 
         apply(posteriors, 1, which.max) 
       
@@ -524,32 +357,32 @@ mapping_from_mixtures = function(data, mixtures, to_merge, params,
 } 
 
 
-# Collapse all class assignments into a string; this is the phenobox label 
-phenobox_label = function(mapping) 
+# Collapse all class assignments into a string; this is the phenobin label 
+phenobin_label = function(mapping) 
 { 
   apply(mapping, 1, function(x) {paste(x, collapse = "")}) 
 } 
 
 
-# Process phenobox assignment, and return list of boxes sorted by size 
-get_phenobox_summary = function(phenobox) 
+# Process phenobin assignment, and return list of bins sorted by size 
+get_phenobin_summary = function(phenobin) 
 { 
-  t = table(phenobox) 
+  t = table(phenobin) 
   t_sorted = rev(order(t)) 
   box_idx = t 
   box_idx[names(box_idx)] = c(1:length(box_idx)) 
-  predictions = as.vector(box_idx[phenobox])  
+  predictions = as.vector(box_idx[phenobin])  
   t_numeric = table(predictions) 
   t_numeric_sorted = rev(order(t_numeric)) 
   
-  list("predictions" = predictions, "boxes_sorted" = t_numeric[t_numeric_sorted]) 
+  list("predictions" = predictions, "bins_sorted" = t_numeric[t_numeric_sorted]) 
 } 
 
 
 
-# A function for analyzing the distribution of phenobox sizes. 
-# Define "outliers" as events contained in the smallest i phenoboxes. 
-# Compute the number of non-outlier phenoboxes VS nubmer of outliers, as i varies. 
+# A function for analyzing the distribution of phenobin sizes. 
+# Define "outliers" as events contained in the smallest i phenobins. 
+# Compute the number of non-outlier phenobins VS nubmer of outliers, as i varies. 
 clusters_vs_outliers = function(tab, verbose = FALSE) 
 { 
   tab_sorted = order(tab) 
@@ -646,21 +479,3 @@ plot_distribution_1d = function(dat, mixtures, name,
 
 
 
-plot_kde_vs_mixture = function(data, mixtures, name, 
-                               xmin = -2, xmax = 5) 
-{ 
-  # Set up the stage for 3 plots side by side 
-  par(mfrow = c(1,3), mar = c(5, 4, 4, 1)) 
-  
-  # Plot kde of the desired variable 
-  plot(global_kdes[[name]], type = "l", xlim = c(xmin,xmax), ylim = c(0,1), 
-       xlab = name, ylab = "density", main = "kde", cex.main = 2) 
-  
-  # Plot gaussian mixture 
-  plot_distribution_1d(data, mixtures, name = name,  
-                       min = xmin, max = xmax) 
-  
-  # Plot mixture components separately 
-  plot_distribution_1d(data, mixtures, name = name,  
-                       min = xmin, max = xmax, separate = TRUE) 
-} 

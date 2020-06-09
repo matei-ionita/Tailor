@@ -17,6 +17,26 @@ make_kdes_global = function(data, parameters)
 } 
 
 
+plot_kde_vs_mixture = function(data, global_kdes, mixtures, name, 
+                              xmin = -2, xmax = 5) 
+{ 
+  # Set up the stage for 3 plots side by side 
+  par(mfrow = c(1,3), mar = c(5, 4, 4, 1)) 
+  
+  # Plot kde of the desired variable 
+  plot(global_kdes[[name]], type = "l", xlim = c(xmin,xmax), ylim = c(0,1), 
+       xlab = name, ylab = "density", main = "kde", cex.main = 2) 
+  
+  # Plot gaussian mixture 
+  plot_distribution_1d(data, mixtures, name = name,  
+                       min = xmin, max = xmax) 
+  
+  # Plot mixture components separately 
+  plot_distribution_1d(data, mixtures, name = name,  
+                       min = xmin, max = xmax, separate = TRUE) 
+} 
+
+
 plot_cluster_histograms = function(global_kdes, cluster = NULL, 
                                    cluster2 = NULL, parameters,  
                                    weights = NULL, 

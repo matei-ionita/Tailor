@@ -279,55 +279,12 @@ categorical_merging = function(pros, means, cutoffs, params)
     centers[i,] = centers[i,] / weight
   }
   
-  list(categs = un, cat_mapping = cat_mapping, centers = centers)
+  list(phenotypes = un, mixture_to_cluster = cat_mapping, centers = centers)
 }
 
 
 
-categorical_labeling = function(cats, defs, params)
-{
-  #################################################
-  # Take input the list of categorical clusters
-  # and definitions of major phenotypes (e.g. naive
-  # CD4 cells). Label each cluster by one major
-  # phenotype, or unknown.
-  #################################################
-  
-  n = length(cats$categs)
-  cats[["labels"]] = vector(mode = "character", length = n)
-  labs = rownames(defs)
-  nam = names(defs)
-  ind = vector(mode = "integer", length = length(nam))
-  for (i in seq(length(nam)))
-  {
-    ind[i] = which(params == nam[i])
-  }
-  
-  for (i in seq(n))
-  {
-    cats$labels[i] = "UNK"
-    
-    for (j in seq(nrow(defs)))
-    {
-      match = TRUE
-      for (k in seq(ncol(defs)))
-      {
-        if (defs[j,k] == "hi" & substr(cats$categs[i],ind[k],ind[k]) == "-" | 
-            defs[j,k] == "lo" & substr(cats$categs[i],ind[k],ind[k]) == "+")
-        {
-          match = FALSE
-        }
-      }
-      if (match)
-      {
-        cats$labels[i] = labs[j]
-        break
-      }
-    }
-  }
-  
-  cats
-}
+
 
 
 
