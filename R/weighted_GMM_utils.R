@@ -85,9 +85,9 @@ bulk_weighted_gmm = function(data, k, params, weights = NULL,
   loglik_history = loglik
 
 
-  for (step in c(1:steps))
+  for (step in c(1:max_steps))
   {
-    if(steps == 0) {break}
+    if(max_steps == 0) {break}
 
     if(verbose) {cat("Starting step ", step, "\n")}
 
@@ -237,14 +237,7 @@ m_step = function(data, mixture, event_probabilities, params,
 
     if (d==1)
     {
-      # TO DO: rewrite d == 1 case, this is junk
-      out = shifted_data * shifted_data
-      out = out * weighted_probs[,slice]
-
-      summed = sum(out) / mixture$pro[slice]
-      dim(summed) = c(1,1)
-      mixture$variance$sigma[,,slice] = summed
-
+      # TO DO: rewrite d == 1 case
     }
     else
     {

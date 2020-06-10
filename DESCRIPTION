@@ -26,10 +26,15 @@ Imports:
     KernSmooth,
     Rtsne,
     foreach,
+    parallel,
+    iterators,
     doParallel,
     ggplot2,
     mclust,
-    mvtnorm
+    mvtnorm,
+    graphics,
+    stats,
+    grDevices
 Remotes:
     bioc::release/flowCore,
     rogerswt/wadeTools

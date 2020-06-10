@@ -14,6 +14,8 @@
 #' @importFrom grDevices dev.print png
 #' @importFrom graphics abline lines par plot
 #' @importFrom stats density dist dnorm kmeans
+#' @import parallel
+#' @import iterators
 NULL
 
 #' @title tailor.learn
@@ -198,7 +200,7 @@ tailor.learn = function(data, params = NULL,
   }
 
   # Use the 1D mixture models to decide on +/- cutoffs
-  cutoffs = get_1D_cutoffs(mixtures_1D, to_merge, tailor_params)
+  cutoffs = get_1D_cutoffs(mixtures_1D$mixtures, mixtures_1D$to_merge, tailor_params)
 
   # Categorical merging
   cat_clusters = categorical_merging(fit$mixture$pro,
@@ -387,11 +389,12 @@ get_1D_mixtures = function(data, params, max_mixture = 3,
     #setup parallel backend to use many processors
     cores=detectCores()
     cl <- makeCluster(cores[1])
-    # cl <- makeCluster(1) # For debugging only: similar to unparallelized version, with 10% overhead
     registerDoParallel(cl)
 
 
     if (verbose) cat("Learning", length(params), "1D mixtures in parallel...")
+
+    data_param = NULL # unnecessary definition, but R CMD check complains without it
 
     fit_list = foreach (data_param = iter(data[sel,], by = 'col'), .packages = c("mclust")) %dopar%
       {
@@ -400,7 +403,7 @@ get_1D_mixtures = function(data, params, max_mixture = 3,
         set.seed(seed)
 
         # Use Bayesian information criterion to choose best k
-        BIC = mclustBIC(data_param, G = 1:max_mixture, model = "V", verbose = FALSE)
+        BIC = mclustBIC(data_param, G = 1:max_mixture, modelNames = "V", verbose = FALSE)
 
         # A tweak to favor smaller k
         for (k in c(1:max_mixture))
@@ -431,7 +434,7 @@ get_1D_mixtures = function(data, params, max_mixture = 3,
       # set.seed(seed)
 
       # Use Bayesian information criterion to choose best k
-      BIC = mclustBIC(dat, G = 1:max_mixture, model = "V", verbose = FALSE)
+      BIC = mclustBIC(dat, G = 1:max_mixture, modelNames = "V", verbose = FALSE)
 
       # A tweak to favor smaller k
       for (k in c(1:max_mixture))
