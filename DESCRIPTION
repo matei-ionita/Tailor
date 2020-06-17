@@ -34,6 +34,7 @@ Imports:
     mvtnorm,
     graphics,
     stats,
+    methods,
     grDevices
 Remotes:
     bioc::release/flowCore,

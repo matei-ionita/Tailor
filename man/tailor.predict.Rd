@@ -13,7 +13,7 @@ tailor.predict(
 )
 }
 \arguments{
-\item{data}{A matrix containing events along the rows, markers along columns.}
+\item{data}{A flowFrame or a matrix containing events along the rows, markers along columns.}
 
 \item{tailor_obj}{A tailor object containing information about mixture components
 and categorical clusters. Can be obtained as the output of tailor.learn.}
@@ -28,7 +28,8 @@ cores available, as returned by parallel::detectCores().}
 \item{verbose}{Boolean flag; if true, outputs timing and milestone information.}
 }
 \value{
-An atomic vector of integers, giving the categorical cluster for each event.
+Two atomic vectors of integers, one giving the mixture component, and the other
+the categorical cluster, for each event.
 }
 \description{
 Takes as input a tailor object and some data (could be the data used

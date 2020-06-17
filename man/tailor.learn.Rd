@@ -10,16 +10,16 @@ tailor.learn(
   mixture_components = 200,
   min_bin_size = 20,
   max_bin_size = 200,
-  mixtures_1D_path = NULL,
-  seed = 135,
-  do_tsne = TRUE,
+  mixtures_1D = NULL,
+  seed = NULL,
+  do_tsne = FALSE,
   do_variance_correction = TRUE,
   parallel = FALSE,
   verbose = TRUE
 )
 }
 \arguments{
-\item{data}{A matrix containing events along the rows, markers along columns.}
+\item{data}{A flowFrame or a matrix containing events along the rows, markers along columns.}
 
 \item{params}{A list of markers to use; must be subset of colnames(data).}
 
@@ -34,8 +34,8 @@ the prediction phase.}
 \item{max_bin_size}{Bins with more events than this threshold are split, to ensure that the
 weighted EM algorithm closely approximates a run of vanilla EM on the entire dataset.}
 
-\item{mixtures_1D_path}{A path for pre-computed 1D mixture models, to be used for binning.
-These are computed from scratch if the path is not provided.}
+\item{mixtures_1D}{Pre-computed 1D mixture models, to be used for binning.
+These are computed from scratch if not provided.}
 
 \item{seed}{A seed for the random number generator, to be used in the initialization of the bin
 centers.}

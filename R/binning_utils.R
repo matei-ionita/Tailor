@@ -107,7 +107,18 @@ find_phenobin_mean = function(data, predictions,
       means[start,] = apply(data[sel,params,drop=FALSE], 2, mean)
     } else
     {
-      km = kmeans(x = data[sel,params,drop = FALSE], centers = n_repr[i])
+      if (length(sel) > 100000)
+      {
+        # kmeans is just for binning purposes, don't care about convergence.
+        # If there are many events, cap at 3 iterations to save time.
+        km = kmeans(x = round(data[sel,params,drop = FALSE],3),
+                    centers = n_repr[i], iter.max = 3)
+      }
+      else
+      {
+        km = kmeans(x = round(data[sel,params,drop = FALSE],3),
+                    centers = n_repr[i])
+      }
       means[c(start:(start + n_repr[i]-1)),] = km$centers
     }
 
@@ -380,6 +391,70 @@ get_phenobin_summary = function(phenobin)
   list("predictions" = predictions, "bins_sorted" = t_numeric[t_numeric_sorted])
 }
 
+
+
+get_1D_mixtures_custom = function(data, params, k = 3,
+                                  sample_fraction = 0.2, seed = NULL,
+                                  separate_neg = FALSE,
+                                  verbose = FALSE)
+{
+  start.time = Sys.time()
+  fit_list = list()
+
+  if (!is.null(seed)) set.seed(seed)
+  # Keep all data, or sample a subset to speed up
+  if (sample_fraction == 1)
+  {
+    sel = c(1:nrow(data))
+  } else
+  {
+    sample_size = ceiling(sample_fraction * nrow(data))
+    sel = sample(nrow(data), sample_size)
+  }
+
+  for (param in params)
+  {
+    if (verbose) {cat(param, " ")}
+
+    dat = data[sel,param]
+
+    # If flag is true, get rid of negative values, which are compensation artifacts
+    if (separate_neg)
+    {
+      negatives = dat[which(dat < 0)]
+      dat = dat[which(dat > 0)]
+    }
+
+    # Fit the model with the chosen k
+    fit = Mclust(dat, G = k, modelNames = "V", verbose = FALSE)
+    fit_list[[param]] = fit$parameters
+
+    # If flag is true, model negative population separately, and add to mixture list
+    if (separate_neg)
+    {
+      fit = Mclust(negatives, G = 1, modelNames = "V", verbose = FALSE)
+      fit_list[[param]]$pro = c(fit$parameters$pro, fit_list[[param]]$pro)
+      fit_list[[param]]$mean = c(fit$parameters$mean, fit_list[[param]]$mean)
+      fit_list[[param]]$variance$sigmasq = c(fit$parameters$variance$sigmasq,
+                                             fit_list[[param]]$variance$sigmasq)
+      fit_list[[param]]$variance$scale = c(fit$parameters$variance$scale,
+                                           fit_list[[param]]$variance$scale)
+
+      # Rescale mixture proportions
+      ln = length(negatives)
+      lp = length(dat)
+
+      fit_list[[param]]$pro[1] = fit_list[[param]]$pro[1] * ln / (ln + lp)
+      fit_list[[param]]$pro[c(2:(k+1))] = fit_list[[param]]$pro[c(2:(k+1))] * lp / (ln + lp)
+    }
+  }
+
+  end.time = Sys.time()
+  if(verbose) {cat("\n")}
+  if(verbose) {print(end.time - start.time)}
+
+  fit_list
+}
 
 
 

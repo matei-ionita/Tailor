@@ -8,12 +8,14 @@
 #' @import wadeTools
 #' @import mvtnorm
 #' @import ggplot2
+#' @importFrom flowCore flowFrame exprs
 #' @importFrom mclust Mclust mclustBIC
 #' @import foreach
 #' @import doParallel
 #' @importFrom grDevices dev.print png
 #' @importFrom graphics abline lines par plot
 #' @importFrom stats density dist dnorm kmeans
+#' @importFrom methods is
 #' @import parallel
 #' @import iterators
 NULL
@@ -24,7 +26,7 @@ NULL
 #' a weighted version of the expectation-maximization (EM) algorithm,
 #' and finally merges mixture components which are positive/negative for the same
 #' markers, using adaptive thresholds.
-#' @param data A matrix containing events along the rows, markers along columns.
+#' @param data A flowFrame or a matrix containing events along the rows, markers along columns.
 #' @param params A list of markers to use; must be subset of colnames(data).
 #' @param mixture_components The number of mixture components to learn. Some of these
 #' are eventually merged, so it's a good idea to choose a number slightly larger than
@@ -34,8 +36,8 @@ NULL
 #' the prediction phase.
 #' @param max_bin_size Bins with more events than this threshold are split, to ensure that the
 #' weighted EM algorithm closely approximates a run of vanilla EM on the entire dataset.
-#' @param mixtures_1D_path A path for pre-computed 1D mixture models, to be used for binning.
-#' These are computed from scratch if the path is not provided.
+#' @param mixtures_1D Pre-computed 1D mixture models, to be used for binning.
+#' These are computed from scratch if not provided.
 #' @param seed A seed for the random number generator, to be used in the initialization of the bin
 #' centers.
 #' @param do_tsne Boolean flag; if true, computes t-SNE reduction to 2D of the bin centers,
@@ -57,32 +59,31 @@ NULL
 tailor.learn = function(data, params = NULL,
                         mixture_components = 200,
                         min_bin_size = 20, max_bin_size = 200,
-                        mixtures_1D_path = NULL,
-                        seed = 135,
-                        do_tsne = TRUE,
+                        mixtures_1D = NULL,
+                        seed = NULL,
+                        do_tsne = FALSE,
                         do_variance_correction = TRUE,
                         parallel = FALSE,
                         verbose = TRUE)
 {
-  # TO DO: add support for FlowFrames, FlowSets
+  if(is(data, "flowFrame")) data = exprs(data)
 
   if (is.null(params)) params = colnames(data)
   d = length(params)
 
-  set.seed(seed)
+  if (!is.null(seed)) set.seed(seed)
 
   # preliminary binning
 
-  if (is.null(mixtures_1D_path))
+  if (is.null(mixtures_1D))
   {
     # Learn 1D mixture model for each variable
     if (verbose) {print("Getting 1D mixtures...")}
-    mixtures_1D = list()
 
-    sample_1D = floor(nrow(data)/5) # TO DO: interpolate between n/5 and n/10 based on dataset size
+    sample_fraction = 0.2 # TO DO: interpolate between n/5 and n/10 based on dataset size
 
-    mixtures_1D$mixtures = get_1D_mixtures(data[,params], params, max_mixture = 3,
-                                    sample_size = sample_1D, seed = seed,
+    mixtures_1D = get_1D_mixtures(data[,params], params, max_mixture = 3,
+                                    sample_fraction = sample_fraction, seed = seed,
                                     parallel = parallel,
                                     verbose = verbose)
 
@@ -94,7 +95,6 @@ tailor.learn = function(data, params = NULL,
   } else
   {
     # If given path to pre-computed mixtures, load them
-    load(mixtures_1D_path)
     tailor_params = names(mixtures_1D$mixtures)
   }
 
@@ -236,7 +236,7 @@ tailor.learn = function(data, params = NULL,
 #' to learn the tailor object, or some new data). Computes, for each event, the mixture
 #' component from which it is most likely drawn, then maps this mixture component to its
 #' corresponding categorical cluster.
-#' @param data A matrix containing events along the rows, markers along columns.
+#' @param data A flowFrame or a matrix containing events along the rows, markers along columns.
 #' @param tailor_obj A tailor object containing information about mixture components
 #' and categorical clusters. Can be obtained as the output of tailor.learn.
 #' @param n_batch A naive implementation would need nrow(data)*mixture_components memory.
@@ -245,16 +245,20 @@ tailor.learn = function(data, params = NULL,
 #' For optimal runtime, if parallel = TRUE, n_batch should be a multiple of the number of
 #' cores available, as returned by parallel::detectCores().
 #' @param verbose Boolean flag; if true, outputs timing and milestone information.
-#' @return An atomic vector of integers, giving the categorical cluster for each event.
+#' @return Two atomic vectors of integers, one giving the mixture component, and the other
+#' the categorical cluster, for each event.
 #' @export
 tailor.predict = function(data, tailor_obj, n_batch = 64,
                           parallel = TRUE, verbose = FALSE)
 {
+  if(is(data,"flowFrame")) data = exprs(data)
+
   start.time = Sys.time()
   n = nrow(data)
-  k = length(tailor_obj$mixture$pro)
-  logpro = log(tailor_obj$mixture$pro)
+  k = length(tailor_obj$fit$mixture$pro)
+  logpro = log(tailor_obj$fit$mixture$pro)
   params = colnames(tailor_obj$fit$mixture$mean)
+  data = data[,params]
 
   mapping = integer(length = n)
 
@@ -278,6 +282,7 @@ tailor.predict = function(data, tailor_obj, n_batch = 64,
 
       data_list[[batch]] = data[c(start_batch:end_batch),params]
     }
+
     rm(data)
 
     mapping = foreach(batch_data=iter(data_list), .combine = c, .packages = c("mvtnorm")) %dopar%
@@ -286,9 +291,8 @@ tailor.predict = function(data, tailor_obj, n_batch = 64,
 
         for (cl in seq(k))
         {
-          weight = tailor_obj$mixture$pro[cl]
-          mean = tailor_obj$mixture$mean[cl,]
-          sigma = tailor_obj$mixture$variance$sigma[,,cl]
+          mean = tailor_obj$fit$mixture$mean[cl,]
+          sigma = tailor_obj$fit$mixture$variance$sigma[,,cl]
           posteriors[,cl] = logpro[cl] + dmvnorm(batch_data, mean, sigma, log = TRUE)
         }
 
@@ -320,11 +324,13 @@ tailor.predict = function(data, tailor_obj, n_batch = 64,
       # are drawn from it
       posteriors = matrix(0, nrow = end_batch - start_batch + 1, ncol = k)
 
+
       for (cl in seq(k))
       {
-        weight = tailor_obj$mixture$pro[cl]
-        mean = tailor_obj$mixture$mean[cl,]
-        sigma = tailor_obj$mixture$variance$sigma[,,cl]
+        weight = tailor_obj$fit$mixture$pro[cl]
+        mean = tailor_obj$fit$mixture$mean[cl,]
+        sigma = tailor_obj$fit$mixture$variance$sigma[,,cl]
+
         posteriors[,cl] = weight * dmvnorm(batch_data, mean, sigma)
       }
 
@@ -339,7 +345,8 @@ tailor.predict = function(data, tailor_obj, n_batch = 64,
   if(verbose) {cat("\n")}
   if(verbose) { print(Sys.time() - start.time) }
 
-  tailor_obj$cat_clusters$mixture_to_cluster[mapping]
+  list(mixture_mapping = mapping,
+       cluster_mapping = tailor_obj$cat_clusters$mixture_to_cluster[mapping])
 }
 
 
@@ -349,13 +356,13 @@ tailor.predict = function(data, tailor_obj, n_batch = 64,
 #' of tailor. It is difficult to find settings which work for all datasets. Therefore, it is
 #' recommended to inspect the results with inspect_1D_mixtures, and run get_1D_mixtures_custom
 #' for problematic markers.
-#' @param data A matrix containing events along the rows, markers along columns.
+#' @param data A flowFrame or a matrix containing events along the rows, markers along columns.
 #' @param params A list of markers to use; must be subset of colnames(data).
 #' @param max_mixture Will attempt to model each marker as k mixture components, for
 #' 1 <= k <= max_mixture. The best k is chosen based on a modified version of the Bayesian
 #' Information Criterion (BIC).
 #' @param prior_BIC Make this larger to favor a smaller number of mixture components.
-#' @param sample_size An integer, at most nrow(data). Used to subsample the data in the
+#' @param sample_fraction A number between 0 and 1: the fraction of data points used in the
 #' calculation of 1D mixture components, to improve runtime.
 #' @param seed A seed for the random generator, used for subsampling and for the initialization
 #' of the 1D mixture components. The results are qualitatively the same, irrespective of the
@@ -366,21 +373,24 @@ tailor.predict = function(data, tailor_obj, n_batch = 64,
 #' for each marker.
 #' @export
 get_1D_mixtures = function(data, params, max_mixture = 3,
-                           prior_BIC = 600, sample_size = NULL, seed = 135,
+                           prior_BIC = 600, sample_fraction = 0.2, seed = NULL,
                            parallel = FALSE,
                            verbose = FALSE)
 {
+  if(is(data,"flowFrame")) data = exprs(data)
+
   start.time = Sys.time()
 
   data = data[,params]
 
   # Keep all data, or sample a subset to speed up
-  set.seed(seed)
-  if (is.null(sample_size))
+  if (!is.null(seed)) set.seed(seed)
+  if (sample_fraction == 1)
   {
     sel = c(1:nrow(data))
   } else
   {
+    sample_size = ceiling(sample_fraction * nrow(data))
     sel = sample(nrow(data), sample_size)
   }
 
@@ -458,70 +468,40 @@ get_1D_mixtures = function(data, params, max_mixture = 3,
 }
 
 
-
-
-get_1D_mixtures_custom = function(data, params, k = 3,
-                                  sample_size = NULL, seed = 135,
-                                  separate_neg = FALSE,
-                                  verbose = FALSE)
+#' @title customize_1D_mixtures
+#' @description After visual inspection of 1D mixtures, manually specify the number of
+#' mixture components to learn for some of the markers.
+#' @param data A flowFrame or a matrix containing events along the rows, markers along columns.
+#' @param to_customize A named list, whose names are markers, and values are the number of mixture
+#' components to learn for each marker.
+#' @param mixtures_1D 1D mixture models, obtained from get_1D_mixtures.
+#' @param sample_fraction A number between 0 and 1: the fraction of data points used in the
+#' calculation of 1D mixture components, to improve runtime.
+#' @param seed A seed for the random generator, used for subsampling and for the initialization
+#' of the 1D mixture components. The results are qualitatively the same, irrespective of the
+#' seed chosen.
+#' @param verbose Boolean flag; if true, outputs timing and milestone information.
+#' @return Updated version of mixtures_1D.
+#' @export
+customize_1D_mixtures = function(data, to_customize,
+                                 mixtures_1D,
+                                 sample_fraction = 0.2,
+                                 seed = NULL,
+                                 verbose = FALSE)
 {
-  start.time = Sys.time()
-  fit_list = list()
+  if(is(data,"flowFrame")) data = exprs(data)
 
-  set.seed(seed)
-  # Keep all data, or sample a subset to speed up
-  if (is.null(sample_size))
+  for (param in names(to_customize))
   {
-    sel = c(1:nrow(data))
-  } else
-  {
-    sel = sample(nrow(data), sample_size)
+    mixtures_1D$mixtures[[param]] = get_1D_mixtures_custom(data, param,
+                                                           k=to_customize[[param]],
+                                                           sample_fraction = sample_fraction,
+                                                           seed = seed,
+                                                           verbose = verbose)[[param]]
   }
 
-  for (param in params)
-  {
-    if (verbose) {cat(param, " ")}
-
-    dat = data[sel,param]
-
-    # If flag is true, get rid of negative values, which are compensation artifacts
-    if (separate_neg)
-    {
-      negatives = dat[which(dat < 0)]
-      dat = dat[which(dat > 0)]
-    }
-
-    # Fit the model with the chosen k
-    fit = Mclust(dat, G = k, modelNames = "V", verbose = FALSE)
-    fit_list[[param]] = fit$parameters
-
-    # If flag is true, model negative population separately, and add to mixture list
-    if (separate_neg)
-    {
-      fit = Mclust(negatives, G = 1, modelNames = "V", verbose = FALSE)
-      fit_list[[param]]$pro = c(fit$parameters$pro, fit_list[[param]]$pro)
-      fit_list[[param]]$mean = c(fit$parameters$mean, fit_list[[param]]$mean)
-      fit_list[[param]]$variance$sigmasq = c(fit$parameters$variance$sigmasq,
-                                             fit_list[[param]]$variance$sigmasq)
-      fit_list[[param]]$variance$scale = c(fit$parameters$variance$scale,
-                                           fit_list[[param]]$variance$scale)
-
-      # Rescale mixture proportions
-      ln = length(negatives)
-      lp = length(dat)
-
-      fit_list[[param]]$pro[1] = fit_list[[param]]$pro[1] * ln / (ln + lp)
-      fit_list[[param]]$pro[c(2:(k+1))] = fit_list[[param]]$pro[c(2:(k+1))] * lp / (ln + lp)
-    }
-  }
-
-  end.time = Sys.time()
-  if(verbose) {cat("\n")}
-  if(verbose) {print(end.time - start.time)}
-
-  fit_list
+  mixtures_1D
 }
-
 
 
 #' @title inspect_1D_mixtures
@@ -529,12 +509,14 @@ get_1D_mixtures_custom = function(data, params, k = 3,
 #' Displays, for each marker, three side-by-side plots, giving a kernel density estimate
 #' for the data and that marker, the Gaussian mixture, and the separate mixture components,
 #' respectively.
-#' @param data A matrix containing events along the rows, markers along columns.
+#' @param data A flowFrame or a matrix containing events along the rows, markers along columns.
 #' @param mixtures_1D 1D mixture models, as produced by get_1D_mixtures.
 #' @param params A list of markers to use; must be subset of colnames(data).
 #' @export
 inspect_1D_mixtures = function(data, mixtures_1D, params)
 {
+  if(is(data,"flowFrame")) data = exprs(data)
+
   global_kdes = make_kdes_global(data, params)
 
   for (param in params)

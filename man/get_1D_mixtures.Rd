@@ -9,14 +9,14 @@ get_1D_mixtures(
   params,
   max_mixture = 3,
   prior_BIC = 600,
-  sample_size = NULL,
-  seed = 135,
+  sample_fraction = 0.2,
+  seed = NULL,
   parallel = FALSE,
   verbose = FALSE
 )
 }
 \arguments{
-\item{data}{A matrix containing events along the rows, markers along columns.}
+\item{data}{A flowFrame or a matrix containing events along the rows, markers along columns.}
 
 \item{params}{A list of markers to use; must be subset of colnames(data).}
 
@@ -26,7 +26,7 @@ Information Criterion (BIC).}
 
 \item{prior_BIC}{Make this larger to favor a smaller number of mixture components.}
 
-\item{sample_size}{An integer, at most nrow(data). Used to subsample the data in the
+\item{sample_fraction}{A number between 0 and 1: the fraction of data points used in the
 calculation of 1D mixture components, to improve runtime.}
 
 \item{seed}{A seed for the random generator, used for subsampling and for the initialization
