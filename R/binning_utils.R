@@ -111,13 +111,13 @@ find_phenobin_mean = function(data, predictions,
       {
         # kmeans is just for binning purposes, don't care about convergence.
         # If there are many events, cap at 3 iterations to save time.
-        km = kmeans(x = round(data[sel,params,drop = FALSE],3),
-                    centers = n_repr[i], iter.max = 3)
+        km = suppressWarnings(kmeans(x = round(data[sel,params,drop = FALSE],3),
+                    centers = n_repr[i], iter.max = 3))
       }
       else
       {
-        km = kmeans(x = round(data[sel,params,drop = FALSE],3),
-                    centers = n_repr[i])
+        km = suppressWarnings(kmeans(x = round(data[sel,params,drop = FALSE],3),
+                    centers = n_repr[i]))
       }
       means[c(start:(start + n_repr[i]-1)),] = km$centers
     }

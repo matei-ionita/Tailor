@@ -4,18 +4,15 @@
 \alias{categorical_labeling}
 \title{categorical_labelling}
 \usage{
-categorical_labeling(categorical_clusters, defs, params)
+categorical_labeling(tailor_obj, defs)
 }
 \arguments{
-\item{categorical_clusters}{Information about categorical clusters obtained from a tailor
-object.}
+\item{tailor_obj}{A tailor object, as obtained from tailor.learn.}
 
 \item{defs}{A matrix or data frame giving definitions of major phenotypes.}
-
-\item{params}{A list of markers to use; must be subset of colnames(data).}
 }
 \value{
-WRITE THIS.
+The tailor object, with updated information about categorical labels.
 }
 \description{
 If major phenotype definitions are available (e.g. "CD4 Naive"),

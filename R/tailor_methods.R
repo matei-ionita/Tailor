@@ -58,7 +58,7 @@ NULL
 #' @export
 tailor.learn = function(data, params = NULL,
                         mixture_components = 200,
-                        min_bin_size = 20, max_bin_size = 200,
+                        min_bin_size = NULL, max_bin_size = NULL,
                         mixtures_1D = NULL,
                         seed = NULL,
                         do_tsne = FALSE,
@@ -69,7 +69,7 @@ tailor.learn = function(data, params = NULL,
   if(is(data, "flowSet"))
   {
     data = suppressWarnings(as(data, "flowFrame"))
-    exprs(data) = exprs(data)[,which(colnames(data) != "Original")]
+    exprs(data) = exprs(data)[,which(flowCore::colnames(data) != "Original")]
   }
 
   if(is(data, "flowFrame")) data = exprs(data)
@@ -79,6 +79,15 @@ tailor.learn = function(data, params = NULL,
 
   if (!is.null(seed)) set.seed(seed)
 
+  if (is.null(min_bin_size))
+  {
+    min_bin_size = ceiling(nrow(data) / 1e5)
+  }
+  if(is.null(max_bin_size))
+  {
+    max_bin_size = ceiling(nrow(data) / 1e3)
+  }
+
   # preliminary binning
 
   if (is.null(mixtures_1D))
@@ -86,10 +95,13 @@ tailor.learn = function(data, params = NULL,
     # Learn 1D mixture model for each variable
     if (verbose) {print("Getting 1D mixtures...")}
 
-    sample_fraction = 0.2 # TO DO: interpolate between n/5 and n/10 based on dataset size
+    sample_fraction = 0.5
+    if (nrow(data) > 5e5) sample_fraction = 0.2
+    if (nrow(data) > 1e7) sample_fraction = 0.1
 
     mixtures_1D = get_1D_mixtures(data[,params], params, max_mixture = 3,
                                     sample_fraction = sample_fraction, seed = seed,
+                                    prior_BIC = 100,
                                     parallel = parallel,
                                     verbose = verbose)
 
@@ -260,7 +272,7 @@ tailor.predict = function(data, tailor_obj, n_batch = 64,
   if(is(data, "flowSet"))
   {
     data = suppressWarnings(as(data, "flowFrame"))
-    exprs(data) = exprs(data)[,which(colnames(data) != "Original")]
+    exprs(data) = exprs(data)[,which(flowCore::colnames(data) != "Original")]
   }
 
   if(is(data,"flowFrame")) data = exprs(data)
@@ -392,7 +404,7 @@ get_1D_mixtures = function(data, params, max_mixture = 3,
   if(is(data, "flowSet"))
   {
     data = suppressWarnings(as(data, "flowFrame"))
-    exprs(data) = exprs(data)[,which(colnames(data) != "Original")]
+    exprs(data) = exprs(data)[,which(flowCore::colnames(data) != "Original")]
   }
 
   if(is(data,"flowFrame")) data = exprs(data)
@@ -510,7 +522,7 @@ customize_1D_mixtures = function(data, to_customize,
   if(is(data, "flowSet"))
   {
     data = suppressWarnings(as(data, "flowFrame"))
-    exprs(data) = exprs(data)[,which(colnames(data) != "Original")]
+    exprs(data) = exprs(data)[,which(flowCore::colnames(data) != "Original")]
   }
 
   if(is(data,"flowFrame")) data = exprs(data)
@@ -542,7 +554,7 @@ inspect_1D_mixtures = function(data, mixtures_1D, params)
   if(is(data, "flowSet"))
   {
     data = suppressWarnings(as(data, "flowFrame"))
-    exprs(data) = exprs(data)[,which(colnames(data) != "Original")]
+    exprs(data) = exprs(data)[,which(flowCore::colnames(data) != "Original")]
   }
 
   if(is(data,"flowFrame")) data = exprs(data)
@@ -552,7 +564,6 @@ inspect_1D_mixtures = function(data, mixtures_1D, params)
   for (param in params)
   {
     plot_kde_vs_mixture(data, global_kdes, mixtures = mixtures_1D$mixtures, name = param)
-    dev.print(png, paste("mixture_", param, ".png", sep = ""), width = 600, height = 400)
   }
 }
 
@@ -561,16 +572,15 @@ inspect_1D_mixtures = function(data, mixtures_1D, params)
 #' @description If major phenotype definitions are available (e.g. "CD4 Naive"),
 #' based on only a few of the markers
 #' in the panel, label each categorical cluster by one of these major phenotypes.
-#' @param categorical_clusters Information about categorical clusters obtained from a tailor
-#' object.
+#' @param tailor_obj A tailor object, as obtained from tailor.learn.
 #' @param defs A matrix or data frame giving definitions of major phenotypes.
-#' @param params A list of markers to use; must be subset of colnames(data).
-#' @return WRITE THIS.
+#' @return The tailor object, with updated information about categorical labels.
 #' @export
-categorical_labeling = function(categorical_clusters, defs, params)
+categorical_labeling = function(tailor_obj, defs)
 {
-  n = length(cats$categs)
-  cats[["labels"]] = vector(mode = "character", length = n)
+  n = length(tailor_obj$cat_clusters$phenotypes)
+  params = colnames(tailor_obj$fit$mixture$mean)
+  tailor_obj$cat_clusters[["labels"]] = vector(mode = "character", length = n)
   labs = rownames(defs)
   nam = names(defs)
   ind = vector(mode = "integer", length = length(nam))
@@ -581,27 +591,51 @@ categorical_labeling = function(categorical_clusters, defs, params)
 
   for (i in seq(n))
   {
-    cats$labels[i] = "UNK"
+    tailor_obj$cat_clusters$labels[i] = "UNK"
 
     for (j in seq(nrow(defs)))
     {
       match = TRUE
       for (k in seq(ncol(defs)))
       {
-        if (defs[j,k] == "hi" & substr(cats$categs[i],ind[k],ind[k]) == "-" |
-            defs[j,k] == "lo" & substr(cats$categs[i],ind[k],ind[k]) == "+")
+        if (defs[j,k] == "hi" & substr(tailor_obj$cat_clusters$phenotypes[i],ind[k],ind[k]) == "-" |
+            defs[j,k] == "lo" & substr(tailor_obj$cat_clusters$phenotypes[i],ind[k],ind[k]) == "+")
         {
           match = FALSE
         }
       }
       if (match)
       {
-        cats$labels[i] = labs[j]
+        tailor_obj$cat_clusters$labels[i] = labs[j]
         break
       }
     }
   }
-  cats
+  tailor_obj
 }
+
+#' @title tsne_clusters
+#' @description Obtain a t-SNE reduction to 2d of the cluster centroids.
+#' @param tailor_obj A tailor object, as obtained from tailor.learn.
+#' @param seed A seed for the random generator, used in the initialization of t-SNE.
+#' @return A data frame containing the 2d embedding of the cluster centroids.
+#' @export
+tsne_clusters = function(tailor_obj, seed = NULL)
+{
+  # Get t-SNE reduction to 2D of cluster centroids
+  centers = tailor_obj$cat_clusters$centers
+
+  n_items = nrow(centers)
+  perplexity = min((n_items - 1)/3, 30)
+  if(!is.null(seed)) set.seed(seed)
+
+  res = Rtsne(dist(centers), perplexity = perplexity)$Y
+  colnames(res) = c("tsne_1", "tsne_2")
+
+  data.frame(res)
+}
+
+
+
 
 
