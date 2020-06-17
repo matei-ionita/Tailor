@@ -13,7 +13,7 @@ tailor.predict(
 )
 }
 \arguments{
-\item{data}{A flowFrame or a matrix containing events along the rows, markers along columns.}
+\item{data}{A flowSet, flowFrame or a matrix containing events along the rows, markers along columns.}
 
 \item{tailor_obj}{A tailor object containing information about mixture components
 and categorical clusters. Can be obtained as the output of tailor.learn.}

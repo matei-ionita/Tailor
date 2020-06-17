@@ -16,7 +16,7 @@ get_1D_mixtures(
 )
 }
 \arguments{
-\item{data}{A flowFrame or a matrix containing events along the rows, markers along columns.}
+\item{data}{A flowSet, flowFrame or a matrix containing events along the rows, markers along columns.}
 
 \item{params}{A list of markers to use; must be subset of colnames(data).}
 

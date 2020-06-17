@@ -26,7 +26,7 @@ NULL
 #' a weighted version of the expectation-maximization (EM) algorithm,
 #' and finally merges mixture components which are positive/negative for the same
 #' markers, using adaptive thresholds.
-#' @param data A flowFrame or a matrix containing events along the rows, markers along columns.
+#' @param data A flowSet, flowFrame or a matrix containing events along the rows, markers along columns.
 #' @param params A list of markers to use; must be subset of colnames(data).
 #' @param mixture_components The number of mixture components to learn. Some of these
 #' are eventually merged, so it's a good idea to choose a number slightly larger than
@@ -66,6 +66,12 @@ tailor.learn = function(data, params = NULL,
                         parallel = FALSE,
                         verbose = TRUE)
 {
+  if(is(data, "flowSet"))
+  {
+    data = suppressWarnings(as(data, "flowFrame"))
+    exprs(data) = exprs(data)[,which(colnames(data) != "Original")]
+  }
+
   if(is(data, "flowFrame")) data = exprs(data)
 
   if (is.null(params)) params = colnames(data)
@@ -236,7 +242,7 @@ tailor.learn = function(data, params = NULL,
 #' to learn the tailor object, or some new data). Computes, for each event, the mixture
 #' component from which it is most likely drawn, then maps this mixture component to its
 #' corresponding categorical cluster.
-#' @param data A flowFrame or a matrix containing events along the rows, markers along columns.
+#' @param data A flowSet, flowFrame or a matrix containing events along the rows, markers along columns.
 #' @param tailor_obj A tailor object containing information about mixture components
 #' and categorical clusters. Can be obtained as the output of tailor.learn.
 #' @param n_batch A naive implementation would need nrow(data)*mixture_components memory.
@@ -251,6 +257,12 @@ tailor.learn = function(data, params = NULL,
 tailor.predict = function(data, tailor_obj, n_batch = 64,
                           parallel = TRUE, verbose = FALSE)
 {
+  if(is(data, "flowSet"))
+  {
+    data = suppressWarnings(as(data, "flowFrame"))
+    exprs(data) = exprs(data)[,which(colnames(data) != "Original")]
+  }
+
   if(is(data,"flowFrame")) data = exprs(data)
 
   start.time = Sys.time()
@@ -356,7 +368,7 @@ tailor.predict = function(data, tailor_obj, n_batch = 64,
 #' of tailor. It is difficult to find settings which work for all datasets. Therefore, it is
 #' recommended to inspect the results with inspect_1D_mixtures, and run get_1D_mixtures_custom
 #' for problematic markers.
-#' @param data A flowFrame or a matrix containing events along the rows, markers along columns.
+#' @param data A flowSet, flowFrame or a matrix containing events along the rows, markers along columns.
 #' @param params A list of markers to use; must be subset of colnames(data).
 #' @param max_mixture Will attempt to model each marker as k mixture components, for
 #' 1 <= k <= max_mixture. The best k is chosen based on a modified version of the Bayesian
@@ -377,6 +389,12 @@ get_1D_mixtures = function(data, params, max_mixture = 3,
                            parallel = FALSE,
                            verbose = FALSE)
 {
+  if(is(data, "flowSet"))
+  {
+    data = suppressWarnings(as(data, "flowFrame"))
+    exprs(data) = exprs(data)[,which(colnames(data) != "Original")]
+  }
+
   if(is(data,"flowFrame")) data = exprs(data)
 
   start.time = Sys.time()
@@ -471,7 +489,7 @@ get_1D_mixtures = function(data, params, max_mixture = 3,
 #' @title customize_1D_mixtures
 #' @description After visual inspection of 1D mixtures, manually specify the number of
 #' mixture components to learn for some of the markers.
-#' @param data A flowFrame or a matrix containing events along the rows, markers along columns.
+#' @param data A flowSet, flowFrame or a matrix containing events along the rows, markers along columns.
 #' @param to_customize A named list, whose names are markers, and values are the number of mixture
 #' components to learn for each marker.
 #' @param mixtures_1D 1D mixture models, obtained from get_1D_mixtures.
@@ -489,6 +507,12 @@ customize_1D_mixtures = function(data, to_customize,
                                  seed = NULL,
                                  verbose = FALSE)
 {
+  if(is(data, "flowSet"))
+  {
+    data = suppressWarnings(as(data, "flowFrame"))
+    exprs(data) = exprs(data)[,which(colnames(data) != "Original")]
+  }
+
   if(is(data,"flowFrame")) data = exprs(data)
 
   for (param in names(to_customize))
@@ -509,12 +533,18 @@ customize_1D_mixtures = function(data, to_customize,
 #' Displays, for each marker, three side-by-side plots, giving a kernel density estimate
 #' for the data and that marker, the Gaussian mixture, and the separate mixture components,
 #' respectively.
-#' @param data A flowFrame or a matrix containing events along the rows, markers along columns.
+#' @param data A flowSet, flowFrame or a matrix containing events along the rows, markers along columns.
 #' @param mixtures_1D 1D mixture models, as produced by get_1D_mixtures.
 #' @param params A list of markers to use; must be subset of colnames(data).
 #' @export
 inspect_1D_mixtures = function(data, mixtures_1D, params)
 {
+  if(is(data, "flowSet"))
+  {
+    data = suppressWarnings(as(data, "flowFrame"))
+    exprs(data) = exprs(data)[,which(colnames(data) != "Original")]
+  }
+
   if(is(data,"flowFrame")) data = exprs(data)
 
   global_kdes = make_kdes_global(data, params)

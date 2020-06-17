@@ -14,7 +14,7 @@ customize_1D_mixtures(
 )
 }
 \arguments{
-\item{data}{A flowFrame or a matrix containing events along the rows, markers along columns.}
+\item{data}{A flowSet, flowFrame or a matrix containing events along the rows, markers along columns.}
 
 \item{to_customize}{A named list, whose names are markers, and values are the number of mixture
 components to learn for each marker.}

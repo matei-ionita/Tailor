@@ -7,7 +7,7 @@
 inspect_1D_mixtures(data, mixtures_1D, params)
 }
 \arguments{
-\item{data}{A flowFrame or a matrix containing events along the rows, markers along columns.}
+\item{data}{A flowSet, flowFrame or a matrix containing events along the rows, markers along columns.}
 
 \item{mixtures_1D}{1D mixture models, as produced by get_1D_mixtures.}
 
