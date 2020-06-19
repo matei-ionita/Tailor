@@ -8,6 +8,7 @@
 #' @import wadeTools
 #' @import mvtnorm
 #' @import ggplot2
+#' @importFrom gridExtra grid.arrange
 #' @importFrom flowCore flowFrame exprs
 #' @importFrom mclust Mclust mclustBIC
 #' @import foreach
@@ -15,7 +16,7 @@
 #' @importFrom grDevices dev.print png
 #' @importFrom graphics abline lines par plot
 #' @importFrom stats density dist dnorm kmeans
-#' @importFrom methods is
+#' @importFrom methods is as
 #' @import parallel
 #' @import iterators
 NULL
@@ -404,10 +405,10 @@ get_1D_mixtures = function(data, params, max_mixture = 3,
   if(is(data, "flowSet"))
   {
     data = suppressWarnings(as(data, "flowFrame"))
-    exprs(data) = exprs(data)[,which(flowCore::colnames(data) != "Original")]
+    flowCore::exprs(data) = flowCore::exprs(data)[,which(flowCore::colnames(data) != "Original")]
   }
 
-  if(is(data,"flowFrame")) data = exprs(data)
+  if(is(data,"flowFrame")) data = flowCore::exprs(data)
 
   start.time = Sys.time()
 
@@ -584,6 +585,7 @@ categorical_labeling = function(tailor_obj, defs)
   labs = rownames(defs)
   nam = names(defs)
   ind = vector(mode = "integer", length = length(nam))
+
   for (i in seq(length(nam)))
   {
     ind[i] = which(params == nam[i])
@@ -614,28 +616,130 @@ categorical_labeling = function(tailor_obj, defs)
   tailor_obj
 }
 
-#' @title tsne_clusters
-#' @description Obtain a t-SNE reduction to 2d of the cluster centroids.
+
+#' @title plot_tsne_clusters
+#' @description Plot a t-SNE reduction to 2d of the cluster centroids.
 #' @param tailor_obj A tailor object, as obtained from tailor.learn.
+#' @param tailor_pred A list of cluster assignments, as obtained from tailor.predict.
 #' @param seed A seed for the random generator, used in the initialization of t-SNE.
-#' @return A data frame containing the 2d embedding of the cluster centroids.
+#' @return A 2d reduced plot of cluster centroid, color-coded by major phenotype.
 #' @export
-tsne_clusters = function(tailor_obj, seed = NULL)
+plot_tsne_clusters = function(tailor_obj, tailor_pred, seed = NULL)
 {
-  # Get t-SNE reduction to 2D of cluster centroids
-  centers = tailor_obj$cat_clusters$centers
+  res = get_tsne_clusters(tailor_obj, seed = seed)
+  res$phenotype = as.factor(tailor_obj$cat_clusters$labels)
+  res$logsize = log(tabulate(tailor_pred$cluster_mapping))
+  res$logsize = res$logsize * 9 / mean(res$logsize)
 
-  n_items = nrow(centers)
-  perplexity = min((n_items - 1)/3, 30)
-  if(!is.null(seed)) set.seed(seed)
+  g = ggplot(res, aes(x=tsne_1, y=tsne_2)) +
+    geom_point(aes(color = phenotype, size = logsize)) +
+    scale_color_brewer(palette = "Paired")
 
-  res = Rtsne(dist(centers), perplexity = perplexity)$Y
-  colnames(res) = c("tsne_1", "tsne_2")
-
-  data.frame(res)
+  g
 }
 
 
 
 
+#' @title plot_tsne_bin_centers
+#' @description Plot a t-SNE reduction to 2d of the cluster centroids.
+#' @param tailor_obj A tailor object, as obtained from tailor.learn.
+#' @return A 2d reduced plot of bin centers, which can be seen as representatives for the cell
+#' population. Color coded by major phenotype.
+#' @export
+plot_tsne_bin_centers = function(tailor_obj)
+{
+  binc = tailor_obj$tsne_centers
+  binc$phenotype = tailor_obj$cat_clusters$mixture_to_cluster[binc$cluster]
+  binc$phenotype = tailor_obj$cat_clusters$labels[binc$phenotype]
+
+  g = ggplot(binc, aes(x=tsne_1, y=tsne_2)) +
+    geom_point(aes(color = phenotype)) +
+    scale_color_brewer(palette = "Paired")
+
+  g
+}
+
+#' @title plot_tsne_global
+#' @description Subsample the entire dataset, and compute a 2D t-SNE embedding.
+#' Plot the embedding twice, color coded by cluster membership and major phenotype, respectively.
+#' @param data A flowSet, flowFrame or a matrix containing events along the rows, markers along columns.
+#' @param tailor_obj A tailor object, as obtained from tailor.learn.
+#' @param tailor_pred A list of cluster assignments, as obtained from tailor.predict.
+#' @param defs Definitions of major phenotypes.
+#' @param seed A seed for the random generator, used in the initialization of t-SNE.
+#' @return A 2d embeddings, color-coded by cluster membershi and major phenotype.
+#' @export
+plot_tsne_global = function(data, tailor_obj, tailor_pred, defs, seed = NULL)
+{
+  # Preprocess input
+  if(is(data, "flowSet"))
+  {
+    data = suppressWarnings(as(data, "flowFrame"))
+    flowCore::exprs(data) = flowCore::exprs(data)[,which(flowCore::colnames(data) != "Original")]
+  }
+
+  if(is(data,"flowFrame")) data = flowCore::exprs(data)
+
+  n_items = nrow(data)
+
+  params = colnames(tailor_obj$fit$mixture$mean)
+
+  # Subsample, because t-SNE is slow
+  if(!is.null(seed)) set.seed(seed)
+
+  if (n_items > 1e4)
+  {
+    sel = sample(n_items, 1e4)
+  } else
+  {
+    sel = c(1:n_items)
+  }
+  data = data[sel,params]
+  perplexity = min((length(sel) - 1)/3, 30)
+
+  # Learn t-SNE embedding and add column for cluster membership
+  tsne = Rtsne(data, perplexity = perplexity)$Y
+  colnames(tsne) = c("tsne_1", "tsne_2")
+  tsne = data.frame(tsne)
+  tsne$cluster = tailor_pred$cluster_mapping[sel]
+  tsne$cluster[tsne$cluster > 11] = "Other"
+  tsne$cluster = as.factor(tsne$cluster)
+
+
+  # Decide on major phenotype of each subsampled data point
+  cutoffs = get_1D_cutoffs(tailor_obj$mixtures_1D$mixtures, tailor_obj$mixtures_1D$to_merge,
+                           params)
+  data_cut = data
+  for (param in params)
+  {
+    cutoff = cutoffs[[param]]
+    data_cut[,param] = "hi"
+    data_cut[which(data[,param] < cutoff), param] = "lo"
+  }
+
+  phenotype = character(length = length(sel))
+  phenotype[c(1:length(sel))] = "Other"
+  for (pheno in rownames(defs))
+  {
+    relevant = names(defs)[which(defs[pheno,] != "dc")]
+    data_relevant = data_cut[,relevant]
+    phenotype[which( apply(data_relevant, 1,
+                           function(x) identical(as.character(x),
+                                                 as.character(defs[pheno,relevant]))))] = pheno
+  }
+
+  tsne$phenotype = as.factor(phenotype)
+
+
+  # Display plots
+  g1 = ggplot(tsne, aes(x=tsne_1, y=tsne_2)) +
+    geom_point(aes(color = cluster)) +
+    scale_color_brewer(palette = "Paired")
+  g2 = ggplot(tsne, aes(x=tsne_1, y=tsne_2)) +
+    geom_point(aes(color = phenotype)) +
+    scale_color_brewer(palette = "Paired")
+
+  gridExtra::grid.arrange(g1,g2, ncol = 2)
+}
 

@@ -18,7 +18,7 @@ LazyData: true
 Roxygen: list(markdown = TRUE)
 biocViews:
 Depends: 
-    R (>= 3.4.0)
+    R (>= 3.5.0)
 Imports: 
     flowCore,
     wadeTools, 
@@ -30,6 +30,7 @@ Imports:
     iterators,
     doParallel,
     ggplot2,
+    gridExtra,
     mclust,
     mvtnorm,
     graphics,

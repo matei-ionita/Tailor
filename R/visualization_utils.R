@@ -104,3 +104,21 @@ get_tsne_centers = function(data, probs, seed = 137)
 
   data.frame(res)
 }
+
+
+get_tsne_clusters = function(tailor_obj, seed = NULL)
+{
+  # Get t-SNE reduction to 2D of cluster centroids
+  centers = tailor_obj$cat_clusters$centers
+
+  n_items = nrow(centers)
+  perplexity = min((n_items - 1)/3, 30)
+  if(!is.null(seed)) set.seed(seed)
+
+  res = Rtsne(dist(centers), perplexity = perplexity)$Y
+  colnames(res) = c("tsne_1", "tsne_2")
+
+  data.frame(res)
+}
+
+
