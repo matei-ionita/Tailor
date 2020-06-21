@@ -70,10 +70,10 @@ tailor.learn = function(data, params = NULL,
   if(is(data, "flowSet"))
   {
     data = suppressWarnings(as(data, "flowFrame"))
-    exprs(data) = exprs(data)[,which(flowCore::colnames(data) != "Original")]
+    flowCore::exprs(data) = flowCore::exprs(data)[,which(flowCore::colnames(data) != "Original")]
   }
 
-  if(is(data, "flowFrame")) data = exprs(data)
+  if(is(data, "flowFrame")) data = flowCore::exprs(data)
 
   if (is.null(params)) params = colnames(data)
   d = length(params)
@@ -273,10 +273,10 @@ tailor.predict = function(data, tailor_obj, n_batch = 64,
   if(is(data, "flowSet"))
   {
     data = suppressWarnings(as(data, "flowFrame"))
-    exprs(data) = exprs(data)[,which(flowCore::colnames(data) != "Original")]
+    flowCore::exprs(data) = flowCore::exprs(data)[,which(flowCore::colnames(data) != "Original")]
   }
 
-  if(is(data,"flowFrame")) data = exprs(data)
+  if(is(data,"flowFrame")) data = flowCore::exprs(data)
 
   start.time = Sys.time()
   n = nrow(data)
@@ -703,7 +703,6 @@ plot_tsne_global = function(data, tailor_obj, tailor_pred, defs, seed = NULL)
   colnames(tsne) = c("tsne_1", "tsne_2")
   tsne = data.frame(tsne)
   tsne$cluster = tailor_pred$cluster_mapping[sel]
-  tsne$cluster[tsne$cluster > 11] = "Other"
   tsne$cluster = as.factor(tsne$cluster)
 
 
@@ -733,13 +732,37 @@ plot_tsne_global = function(data, tailor_obj, tailor_pred, defs, seed = NULL)
 
 
   # Display plots
-  g1 = ggplot(tsne, aes(x=tsne_1, y=tsne_2)) +
-    geom_point(aes(color = cluster)) +
-    scale_color_brewer(palette = "Paired")
-  g2 = ggplot(tsne, aes(x=tsne_1, y=tsne_2)) +
-    geom_point(aes(color = phenotype)) +
-    scale_color_brewer(palette = "Paired")
+  mycolors = c(brewer.pal(name="Set1", n = 9), brewer.pal(name="Set3", n = 12))
+  mycolors = mycolors[c(1:2, 10:21)]
 
-  gridExtra::grid.arrange(g1,g2, ncol = 2)
+  plot_list = list()
+  g = ggplot(tsne, aes(x=tsne_1, y=tsne_2)) +
+    geom_point(aes(color = phenotype)) +
+    scale_color_manual(values = mycolors)
+  plot_list[[1]] = g
+
+  xlim = ggplot_build(g)$layout$panel_scales_x[[1]]$range$range
+  ylim = ggplot_build(g)$layout$panel_scales_y[[1]]$range$range
+
+  len = length(tailor_obj$cat_clusters$labels)
+  nplot = ceiling(len/7)
+
+  for (plot_index in seq(1:nplot))
+  {
+    start = 7 * (plot_index - 1) + 1
+    end   = min(7 * plot_index, len)
+    sel = which(tsne$cluster %in% c(start:end))
+
+    g = ggplot(tsne[sel,], aes(x=tsne_1, y=tsne_2)) +
+      geom_point(aes(color = cluster)) +
+      scale_color_brewer(palette = "Dark2") +
+      scale_x_continuous(limits = xlim) +
+      scale_y_continuous(limits = ylim)
+
+    plot_list[[plot_index + 1]] = g
+  }
+
+  ncol = ceiling(sqrt(nplot))
+  gridExtra::grid.arrange(grobs = plot_list, ncol = ncol)
 }
 
