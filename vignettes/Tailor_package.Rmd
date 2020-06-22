@@ -1,0 +1,168 @@
+---
+title: "Tailor package"
+author: "Matei Ionita"
+date: "6/21/2020"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Tailor}
+  %\VignetteEngine{knitr::rmarkdown}
+  \usepackage[utf8]{inputenc}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Introduction
+
+In recent years there have been many proposals for clustering approaches in the study of flow cytometry data. Tailor implements a clustering workflow based on Gaussian mixture modeling, motivated by the ability of this approach to identify distinct cell populations which show up as the tail of a unimodal distribution. In contrast, many existing clustering approaches would consider such tails as noise, and consider the entire unimodal distribution as a single population.
+
+TO DO: show picture here.
+
+In general, Gaussian mixture modeling has two disadvantages: slow runtime, and sensitivity to initialization. Tailor mitigates both of these with the help of a preliminary binning step before the main mixture modeling algorithm (see section on Advanced workflow for details). The main algorithm is run on a sample of representatives from all bins; the choice of these representatives should be thought of as a density-dependent subsampling of the data. Moreover, the mixture components are initialized with mean equal to the mean of the largest bins, ensuring an initialization which captures most of the biologically interesting variation within the data.
+
+
+## Summary
+The Tailor package contains methods that accomplish three purposes:
+
+* learning a model of the data: `tailor.learn()`, `get_1D_mixtures()`, `customize_1D_mixtures()`, `categorical_labeling()`
+
+* predicting the most likely cluster membership for a batch of data: `tailor.predict()`
+
+* visualization: `inspect_1D_mixtures()`, `plot_tsne_clusters()`, `plot_tsne_global()`
+
+
+## Default workflow
+Some preparations: load the package, some data, choose the parameters to be used in the clustering analysis, and choose a seed for the random generator.
+
+```{r preparations}
+library(Tailor)
+filename = system.file("extdata", "sampled_flowset_young.rda", package = "Tailor")
+load(filename)   # fs_young
+
+tailor_params = flowCore::colnames(fs_young)[c(7:9, 11:22)]
+seed = 525
+
+tailor_params
+```
+
+
+The simplest way to learn a Tailor model is to feed the data directly to the `tailor.learn()` method. (See the Advanced workflow section below for more complex options.)
+
+```{r tailor_vanilla}
+n_components = 50
+
+tailor_obj = tailor.learn(data = fs_young,
+                          params = tailor_params,
+                          seed = seed,
+                          mixture_components = n_components,
+                          verbose = FALSE)
+```
+
+The `mixture` field of the Tailor object contains information about the 50 mixture components used to model the data.
+`mixture$pro`, `mixture$means` and `mixture$variance$sigma` contain the mixture proportions, means and variances, respectively.
+For example, below we access the mixture proportion and mean of the first mixture component. We can see that this is a large component, containing around 12% of the data, and consists of macrophages, as shown by the high CD14 and CD11 expression.
+
+```{r tailor_mixture}
+tailor_obj$mixture$pro[1]
+tailor_obj$mixture$mean[1,]
+```
+
+Tailor clusters, also called categorical clusters, are unions of two or more mixture components which have similar expression for all parameters. Information about categorical clusters can be found in the `cat_clusters` field of the Tailor object.
+
+```{r tailor_categorical}
+head(tailor_obj$cat_clusters$phenotypes)
+head(tailor_obj$cat_clusters$centers)
+
+# a list mapping each of the 50 mixture components to a categorical cluster
+tailor_obj$cat_clusters$mixture_to_cluster
+```
+
+If available, load a file containing definitions of major phenotypes (e.g. Naive CD4 T cell, Macrophage). We can use this to enhance the Tailor object, labeling each categorical cluster by a major phenotype.
+
+```{r categorical_labeling}
+defsfile = system.file("extdata", "pheno_definitions.csv", package = "Tailor")
+defs = read.csv(defsfile, row.names = 1, stringsAsFactors=FALSE)
+defs
+
+tailor_obj = categorical_labeling(tailor_obj, defs)
+```
+
+Given the Tailor object computed with `tailor.learn()`, we can use `tailor.predict()` to assign cluster membership to data. In this example, we use the same data that was used in the learning step. But `tailor.predict()` can be used just as well with new data.
+
+```{r tailor_predict}
+tailor_pred = tailor.predict(data = fs_young,
+                             tailor_obj = tailor_obj,
+                             parallel = TRUE)
+```
+
+`tailor.predict()` returns two lists. `$mixture_mapping` assigns each datapoint to a mixture component. `$cluster_mapping` assigns each datapoint to a categorical cluster.
+
+Use `plot_tsne_clusters()` to view a t-SNE embedding to 2D of the categorical cluster centroids. They are color-coded by major phenotype, and the size of the dots depends logarithmically on cluster size.
+
+```{r tailor_plot_clusters, fig.align= "center", fig.width=6, fig.height=4}
+plot_tsne_clusters(tailor_obj, tailor_pred, seed = seed)
+```
+
+
+
+
+## Advanced workflow
+
+You will get better results if you take control over the initial step (or "binning step") of Tailor's learning phase.
+In this step, events are placed into phenotypically similar bins, and one or more representatives from each bin is chosen. You should think of binning as a way to perform density-based subsampling of the data. To define the bins, Tailor models the distribution of each individual parameter as a Gaussian mixture, with 1-3 components. (This is distinct from the main modeling step, where the 15-dimensional distribution of all parameters is modeled as a Gaussian mixture with 50 components.) This 1D modeling happens behind the scenes in a run of `tailor.learn()` with default settings. Instead, you can do it explicitly using `get_1D_mixtures()`, and visualize the result with `inspect_1D_mixtures()`.
+
+```{r 1D_mixtures, fig.width=8, fig.height=4}
+mixtures_1D = get_1D_mixtures(fs_young, tailor_params,
+                              max_mixture = 3,
+                              prior_BIC = 100,
+                              seed = seed,
+                              parallel = TRUE)
+
+inspect_1D_mixtures(fs_young, mixtures_1D, tailor_params)
+```
+
+Most of the 1D models look reasonable. But for CCR7, it would be better to use two mixture components instead of one. Similarly, for CD27 it would be better to use three mixture components instead of two.
+
+```{r customize_1D_mixtures, fig.width=8, fig.height=4}
+to_customize = list("CCR7PECY7" = 2, "CD27AF700" = 3)
+mixtures_1D = customize_1D_mixtures(fs_young, to_customize, mixtures_1D, verbose = TRUE)
+inspect_1D_mixtures(fs_young, mixtures_1D, names(to_customize))
+```
+
+That looks better.
+We can pass the 1D mixtures as an argument to `tailor.learn()`, and they will be used in the binning process. We can also specify some 1D mixture components that should be merged in the same bin, if we have grounds to believe that they represent the same biological population.
+
+```{r learn_advanced}
+mixtures_1D$to_merge = list("CD11BAPCCY7"= c(1,2), "CD45RAQ655" = c(1,2), "CD27AF700" = c(2,3))
+
+tailor_obj = tailor.learn(data = fs_young,
+                          params = tailor_params,
+                          mixtures_1D = mixtures_1D,
+                          seed = seed,
+                          mixture_components = n_components,
+                          verbose = FALSE)
+
+tailor_obj = categorical_labeling(tailor_obj, defs)
+tailor_pred = tailor.predict(data = fs_young,
+                             tailor_obj = tailor_obj,
+                             parallel = TRUE)
+```
+
+We can visualize the t-SNE embeddings of the new categorical clusters.
+
+```{r tailor_plot_clusters_advanced, fig.align= "center", fig.width=6, fig.height=4}
+plot_tsne_clusters(tailor_obj, tailor_pred, seed = seed)
+```
+
+Finally, we can visualize the Tailor categorical clusters in a t-SNE embedding of the original data (or a uniform sample thereof, to speed up computation). The method `plot_tsne_global()` first displays the t-SNE embedding color-coded by major phenotype. Then it picks Tailor clusters, in groups of at most seven, and plots only those datapoints belonging to the chosen clusters. This should aid in visualizing the correspondence between Tailor clusters and major phenotypes. Note that there's no reason to expect the t-SNE embedding to agree with the Tailor clusters: t-SNE and Tailor are very different algorithms, which highlight different features in the data.
+
+```{r global_tsne, fig.align= "center", fig.width=12, fig.height=8}
+plot_tsne_global(fs_young, tailor_obj, tailor_pred, defs, seed = seed)
+```
+
+## Remarks
+
+The Tailor package is a work in progress. When you find something that doesn't work, please let me know.
+

@@ -19,6 +19,7 @@
 #' @importFrom methods is as
 #' @import parallel
 #' @import iterators
+#' @importFrom RColorBrewer brewer.pal
 NULL
 
 #' @title tailor.learn
@@ -236,12 +237,12 @@ tailor.learn = function(data, params = NULL,
 
   if (do_tsne)
   {
-    tailor_obj = list("fit" = fit, "mixtures_1D" = mixtures_1D, "cat_clusters" = cat_clusters,
+    tailor_obj = list("mixture" = fit$mixture, "mixtures_1D" = mixtures_1D, "cat_clusters" = cat_clusters,
          "tsne_centers" = tsne_centers)
   }
   else
   {
-    tailor_obj = list("fit" = fit, "mixtures_1D" = mixtures_1D, "cat_clusters" = cat_clusters)
+    tailor_obj = list("mixture" = fit$mixture, "mixtures_1D" = mixtures_1D, "cat_clusters" = cat_clusters)
   }
 
   class(tailor_obj) = "tailor"
@@ -280,9 +281,9 @@ tailor.predict = function(data, tailor_obj, n_batch = 64,
 
   start.time = Sys.time()
   n = nrow(data)
-  k = length(tailor_obj$fit$mixture$pro)
-  logpro = log(tailor_obj$fit$mixture$pro)
-  params = colnames(tailor_obj$fit$mixture$mean)
+  k = length(tailor_obj$mixture$pro)
+  logpro = log(tailor_obj$mixture$pro)
+  params = colnames(tailor_obj$mixture$mean)
   data = data[,params]
 
   mapping = integer(length = n)
@@ -316,8 +317,8 @@ tailor.predict = function(data, tailor_obj, n_batch = 64,
 
         for (cl in seq(k))
         {
-          mean = tailor_obj$fit$mixture$mean[cl,]
-          sigma = tailor_obj$fit$mixture$variance$sigma[,,cl]
+          mean = tailor_obj$mixture$mean[cl,]
+          sigma = tailor_obj$mixture$variance$sigma[,,cl]
           posteriors[,cl] = logpro[cl] + dmvnorm(batch_data, mean, sigma, log = TRUE)
         }
 
@@ -352,9 +353,9 @@ tailor.predict = function(data, tailor_obj, n_batch = 64,
 
       for (cl in seq(k))
       {
-        weight = tailor_obj$fit$mixture$pro[cl]
-        mean = tailor_obj$fit$mixture$mean[cl,]
-        sigma = tailor_obj$fit$mixture$variance$sigma[,,cl]
+        weight = tailor_obj$mixture$pro[cl]
+        mean = tailor_obj$mixture$mean[cl,]
+        sigma = tailor_obj$mixture$variance$sigma[,,cl]
 
         posteriors[,cl] = weight * dmvnorm(batch_data, mean, sigma)
       }
@@ -523,10 +524,10 @@ customize_1D_mixtures = function(data, to_customize,
   if(is(data, "flowSet"))
   {
     data = suppressWarnings(as(data, "flowFrame"))
-    exprs(data) = exprs(data)[,which(flowCore::colnames(data) != "Original")]
+    flowCore::exprs(data) = flowCore::exprs(data)[,which(flowCore::colnames(data) != "Original")]
   }
 
-  if(is(data,"flowFrame")) data = exprs(data)
+  if(is(data,"flowFrame")) data = flowCore::exprs(data)
 
   for (param in names(to_customize))
   {
@@ -555,10 +556,10 @@ inspect_1D_mixtures = function(data, mixtures_1D, params)
   if(is(data, "flowSet"))
   {
     data = suppressWarnings(as(data, "flowFrame"))
-    exprs(data) = exprs(data)[,which(flowCore::colnames(data) != "Original")]
+    flowCore::exprs(data) = flowCore::exprs(data)[,which(flowCore::colnames(data) != "Original")]
   }
 
-  if(is(data,"flowFrame")) data = exprs(data)
+  if(is(data,"flowFrame")) data = flowCore::exprs(data)
 
   global_kdes = make_kdes_global(data, params)
 
@@ -580,7 +581,7 @@ inspect_1D_mixtures = function(data, mixtures_1D, params)
 categorical_labeling = function(tailor_obj, defs)
 {
   n = length(tailor_obj$cat_clusters$phenotypes)
-  params = colnames(tailor_obj$fit$mixture$mean)
+  params = colnames(tailor_obj$mixture$mean)
   tailor_obj$cat_clusters[["labels"]] = vector(mode = "character", length = n)
   labs = rownames(defs)
   nam = names(defs)
@@ -683,7 +684,7 @@ plot_tsne_global = function(data, tailor_obj, tailor_pred, defs, seed = NULL)
 
   n_items = nrow(data)
 
-  params = colnames(tailor_obj$fit$mixture$mean)
+  params = colnames(tailor_obj$mixture$mean)
 
   # Subsample, because t-SNE is slow
   if(!is.null(seed)) set.seed(seed)
