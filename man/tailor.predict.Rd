@@ -8,7 +8,7 @@ tailor.predict(
   data,
   tailor_obj,
   n_batch = 64,
-  parallel = TRUE,
+  parallel = FALSE,
   verbose = FALSE
 )
 }

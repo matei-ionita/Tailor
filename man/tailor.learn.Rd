@@ -15,7 +15,7 @@ tailor.learn(
   do_tsne = FALSE,
   do_variance_correction = TRUE,
   parallel = FALSE,
-  verbose = TRUE
+  verbose = 0.5
 )
 }
 \arguments{
@@ -48,7 +48,8 @@ components found in weighted EM, to account for intra-bin variance. TRUE is stro
 
 \item{parallel}{Boolean flag; if true, uses multithreading to speed up computation.}
 
-\item{verbose}{Boolean flag; if true, outputs timing and milestone information.}
+\item{verbose}{If > 0, outputs milestone information. If >=1, also outputs information about
+running utilities. If >1, debugging mode.}
 }
 \value{
 A tailor object containing:

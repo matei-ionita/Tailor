@@ -34,9 +34,9 @@ The Tailor package contains methods that accomplish three purposes:
 
 
 ## Default workflow
-Some preparations: load the package, some data, choose the parameters to be used in the clustering analysis, and choose a seed for the random generator.
+Some preparations: load the package, some data, choose the parameters to be used in the clustering analysis, and choose a seed for the random generator. For a quick peek at the dataset, plot a kernel density estimate for each parameter.
 
-```{r preparations}
+```{r preparations, fig.align = "center", fig.width=8, fig.height=5}
 library(Tailor)
 filename = system.file("extdata", "sampled_flowset_young.rda", package = "Tailor")
 load(filename)   # fs_young
@@ -44,7 +44,7 @@ load(filename)   # fs_young
 tailor_params = flowCore::colnames(fs_young)[c(7:9, 11:22)]
 seed = 525
 
-tailor_params
+plot_kdes_global(fs_young, tailor_params)
 ```
 
 
@@ -56,8 +56,7 @@ n_components = 50
 tailor_obj = tailor.learn(data = fs_young,
                           params = tailor_params,
                           seed = seed,
-                          mixture_components = n_components,
-                          verbose = FALSE)
+                          mixture_components = n_components)
 ```
 
 The `mixture` field of the Tailor object contains information about the 50 mixture components used to model the data.
@@ -93,8 +92,7 @@ Given the Tailor object computed with `tailor.learn()`, we can use `tailor.predi
 
 ```{r tailor_predict}
 tailor_pred = tailor.predict(data = fs_young,
-                             tailor_obj = tailor_obj,
-                             parallel = TRUE)
+                             tailor_obj = tailor_obj)
 ```
 
 `tailor.predict()` returns two lists. `$mixture_mapping` assigns each datapoint to a mixture component. `$cluster_mapping` assigns each datapoint to a categorical cluster.
@@ -117,8 +115,7 @@ In this step, events are placed into phenotypically similar bins, and one or mor
 mixtures_1D = get_1D_mixtures(fs_young, tailor_params,
                               max_mixture = 3,
                               prior_BIC = 100,
-                              seed = seed,
-                              parallel = TRUE)
+                              seed = seed)
 
 inspect_1D_mixtures(fs_young, mixtures_1D, tailor_params)
 ```
@@ -141,13 +138,11 @@ tailor_obj = tailor.learn(data = fs_young,
                           params = tailor_params,
                           mixtures_1D = mixtures_1D,
                           seed = seed,
-                          mixture_components = n_components,
-                          verbose = FALSE)
+                          mixture_components = n_components)
 
 tailor_obj = categorical_labeling(tailor_obj, defs)
 tailor_pred = tailor.predict(data = fs_young,
-                             tailor_obj = tailor_obj,
-                             parallel = TRUE)
+                             tailor_obj = tailor_obj)
 ```
 
 We can visualize the t-SNE embeddings of the new categorical clusters.

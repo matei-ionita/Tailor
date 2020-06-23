@@ -20,6 +20,7 @@
 #' @import parallel
 #' @import iterators
 #' @importFrom RColorBrewer brewer.pal
+#' @importFrom rlang .data
 NULL
 
 #' @title tailor.learn
@@ -47,7 +48,8 @@ NULL
 #' @param do_variance_correction Boolean flag; if true, corrects the variances of the mixture
 #' components found in weighted EM, to account for intra-bin variance. TRUE is strongly recommended.
 #' @param parallel Boolean flag; if true, uses multithreading to speed up computation.
-#' @param verbose Boolean flag; if true, outputs timing and milestone information.
+#' @param verbose If > 0, outputs milestone information. If >=1, also outputs information about
+#' running utilities. If >1, debugging mode.
 #' @return A tailor object containing:
 #' \describe{
 #'   \item{fit}{The tailor model, a named list containing the mixture proportions, means and variances
@@ -66,8 +68,10 @@ tailor.learn = function(data, params = NULL,
                         do_tsne = FALSE,
                         do_variance_correction = TRUE,
                         parallel = FALSE,
-                        verbose = TRUE)
+                        verbose = 0.5)
 {
+  start.time = Sys.time()
+
   if(is(data, "flowSet"))
   {
     data = suppressWarnings(as(data, "flowFrame"))
@@ -95,7 +99,7 @@ tailor.learn = function(data, params = NULL,
   if (is.null(mixtures_1D))
   {
     # Learn 1D mixture model for each variable
-    if (verbose) {print("Getting 1D mixtures...")}
+    if (verbose > 0) {print("Getting 1D mixtures...")}
 
     sample_fraction = 0.5
     if (nrow(data) > 5e5) sample_fraction = 0.2
@@ -105,13 +109,13 @@ tailor.learn = function(data, params = NULL,
                                     sample_fraction = sample_fraction, seed = seed,
                                     prior_BIC = 100,
                                     parallel = parallel,
-                                    verbose = verbose)
+                                    verbose = (verbose >= 1))
 
     # Merge modes whose mean is small enough.
     # These are likely compensation artifacts.
     mixtures_1D$to_merge = find_to_merge(mixtures_1D, params,
                              negative_threshold = 0.5,
-                             verbose = FALSE)
+                             verbose = (verbose == 1))
   } else
   {
     # If given path to pre-computed mixtures, load them
@@ -120,15 +124,15 @@ tailor.learn = function(data, params = NULL,
 
 
   # Up-sample: assign each data point to most likely component of the model
-  if (verbose) { print("Assigning data to 1D mixtures...")}
+  if (verbose > 0) { print("Assigning data to 1D mixtures...")}
 
   mapping = mapping_from_mixtures(data[,params], mixtures_1D$mixtures, mixtures_1D$to_merge,
                                   params,
-                                  parallel = parallel, verbose = verbose)
+                                  parallel = parallel, verbose = (verbose >= 1))
   phenobin = phenobin_label(mapping)
 
 
-  if (verbose) { print("Preparing initialization of bulk mixture model...")}
+  if (verbose > 0) { print("Preparing initialization of bulk mixture model...")}
 
   # Parse phenobins
   phenobin_summary = get_phenobin_summary(phenobin)
@@ -138,7 +142,7 @@ tailor.learn = function(data, params = NULL,
   sizes = as.vector(phenobin_summary$bins_sorted)[large_bins]
   populous = which(phenobin_summary$predictions %in% bins)
 
-  if(verbose)
+  if(verbose > 1)
   {
     cat("Total bin number before splitting: ", length(phenobin_summary$bins_sorted), "\n")
     cat("Maximum bin size: ", sizes[1], "\n")
@@ -153,13 +157,13 @@ tailor.learn = function(data, params = NULL,
                                            compute_var = do_variance_correction,
                                            seed = seed,
                                            parallel = parallel,
-                                           verbose = FALSE)
+                                           verbose = (verbose >= 1))
   repr_means = phenobin_parameters$means
   repr_variances = phenobin_parameters$variances
   repr_sizes = phenobin_parameters$sizes
 
 
-  if (verbose)
+  if (verbose > 1)
   {
     cat("Total bin number after selecting and splitting: ", nrow(repr_means), "\n")
     cat("Maximum bin size: ", max(repr_sizes), "\n")
@@ -178,7 +182,7 @@ tailor.learn = function(data, params = NULL,
                                            compute_var = TRUE,
                                            seed = seed,
                                            parallel = parallel,
-                                           verbose = FALSE)
+                                           verbose = (verbose >= 1))
 
 
   mixture = list()
@@ -194,7 +198,7 @@ tailor.learn = function(data, params = NULL,
 
 
   # Learn bulk mixture model on weighted subsample
-  if (verbose) { print("Running bulk mixture model...")}
+  if (verbose > 0) { print("Running bulk mixture model...")}
 
   if (do_variance_correction)
   {
@@ -205,7 +209,7 @@ tailor.learn = function(data, params = NULL,
                             initialize = mixture,
                             regularize_variance = TRUE,
                             variance_correction = repr_variances,
-                            verbose = TRUE)
+                            verbose = (verbose >= 1))
   }
   else
   {
@@ -216,7 +220,7 @@ tailor.learn = function(data, params = NULL,
                             initialize = mixture,
                             regularize_variance = TRUE,
                             variance_correction = NULL,
-                            verbose = TRUE)
+                            verbose = (verbose >= 1))
   }
 
   # Use the 1D mixture models to decide on +/- cutoffs
@@ -230,7 +234,7 @@ tailor.learn = function(data, params = NULL,
 
   if (do_tsne)
   {
-    if (verbose) { print("Reducing phenobin centers to 2D...") }
+    if (verbose > 0) { print("Reducing phenobin centers to 2D...") }
     tsne_centers = get_tsne_centers(data = repr_means, seed = seed, probs = fit$event_probabilities)
   }
 
@@ -244,6 +248,8 @@ tailor.learn = function(data, params = NULL,
   {
     tailor_obj = list("mixture" = fit$mixture, "mixtures_1D" = mixtures_1D, "cat_clusters" = cat_clusters)
   }
+
+  if (verbose > 0) print(Sys.time() - start.time)
 
   class(tailor_obj) = "tailor"
   tailor_obj
@@ -269,7 +275,7 @@ tailor.learn = function(data, params = NULL,
 #' the categorical cluster, for each event.
 #' @export
 tailor.predict = function(data, tailor_obj, n_batch = 64,
-                          parallel = TRUE, verbose = FALSE)
+                          parallel = FALSE, verbose = FALSE)
 {
   if(is(data, "flowSet"))
   {
@@ -632,8 +638,8 @@ plot_tsne_clusters = function(tailor_obj, tailor_pred, seed = NULL)
   res$logsize = log(tabulate(tailor_pred$cluster_mapping))
   res$logsize = res$logsize * 9 / mean(res$logsize)
 
-  g = ggplot(res, aes(x=tsne_1, y=tsne_2)) +
-    geom_point(aes(color = phenotype, size = logsize)) +
+  g = ggplot(res, aes(x=.data$tsne_1, y=.data$tsne_2)) +
+    geom_point(aes(color = .data$phenotype, size = .data$logsize)) +
     scale_color_brewer(palette = "Paired")
 
   g
@@ -654,8 +660,8 @@ plot_tsne_bin_centers = function(tailor_obj)
   binc$phenotype = tailor_obj$cat_clusters$mixture_to_cluster[binc$cluster]
   binc$phenotype = tailor_obj$cat_clusters$labels[binc$phenotype]
 
-  g = ggplot(binc, aes(x=tsne_1, y=tsne_2)) +
-    geom_point(aes(color = phenotype)) +
+  g = ggplot(binc, aes(x=.data$tsne_1, y=.data$tsne_2)) +
+    geom_point(aes(color = .data$phenotype)) +
     scale_color_brewer(palette = "Paired")
 
   g
@@ -737,8 +743,8 @@ plot_tsne_global = function(data, tailor_obj, tailor_pred, defs, seed = NULL)
   mycolors = mycolors[c(1:2, 10:21)]
 
   plot_list = list()
-  g = ggplot(tsne, aes(x=tsne_1, y=tsne_2)) +
-    geom_point(aes(color = phenotype)) +
+  g = ggplot(tsne, aes(x=.data$tsne_1, y=.data$tsne_2)) +
+    geom_point(aes(color = .data$phenotype)) +
     scale_color_manual(values = mycolors)
   plot_list[[1]] = g
 
@@ -754,8 +760,8 @@ plot_tsne_global = function(data, tailor_obj, tailor_pred, defs, seed = NULL)
     end   = min(7 * plot_index, len)
     sel = which(tsne$cluster %in% c(start:end))
 
-    g = ggplot(tsne[sel,], aes(x=tsne_1, y=tsne_2)) +
-      geom_point(aes(color = cluster)) +
+    g = ggplot(tsne[sel,], aes(x=.data$tsne_1, y=.data$tsne_2)) +
+      geom_point(aes(color = .data$cluster)) +
       scale_color_brewer(palette = "Dark2") +
       scale_x_continuous(limits = xlim) +
       scale_y_continuous(limits = ylim)
@@ -766,4 +772,43 @@ plot_tsne_global = function(data, tailor_obj, tailor_pred, defs, seed = NULL)
   ncol = ceiling(sqrt(nplot))
   gridExtra::grid.arrange(grobs = plot_list, ncol = ncol)
 }
+
+
+#' @title plot_kdes_global
+#' @description Plot 1D kdes of a dataset for visual inspection.
+#' @param data A flowSet, flowFrame or a matrix containing events along the rows, markers along columns.
+#' @param params A list of markers to use; must be subset of colnames(data).
+#' @export
+plot_kdes_global = function(data, params)
+{
+  # Preprocess input
+  if(is(data, "flowSet"))
+  {
+    data = suppressWarnings(as(data, "flowFrame"))
+    flowCore::exprs(data) = flowCore::exprs(data)[,which(flowCore::colnames(data) != "Original")]
+  }
+  if(is(data,"flowFrame")) data = flowCore::exprs(data)
+
+  global_kdes = make_kdes_global(data, params)
+
+  plot_list = list()
+  for (param in params)
+  {
+    df = data.frame(global_kdes[[param]])
+    g = ggplot(df, aes(x=.data$x, y=.data$y)) +
+      geom_line() +
+      ggtitle(param) +
+      theme(panel.background = element_rect(fill = "white"),
+            axis.line = element_line(),
+            plot.title = element_text(hjust = 0.5),
+            axis.title.x = element_blank(), axis.title.y = element_blank() )
+
+    plot_list[[param]] = g
+  }
+
+  ncol = ceiling(sqrt(length(params)))
+  gridExtra::grid.arrange(grobs = plot_list, ncol = ncol)
+}
+
+
 

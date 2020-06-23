@@ -37,7 +37,8 @@ Imports:
     stats,
     methods,
     grDevices,
-    RColorBrewer
+    RColorBrewer,
+    rlang
 Remotes:
     bioc::release/flowCore,
     rogerswt/wadeTools
