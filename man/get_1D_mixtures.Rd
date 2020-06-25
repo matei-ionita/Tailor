@@ -8,7 +8,7 @@ get_1D_mixtures(
   data,
   params,
   max_mixture = 3,
-  prior_BIC = 600,
+  prior_BIC = NULL,
   sample_fraction = 0.2,
   seed = NULL,
   parallel = FALSE,

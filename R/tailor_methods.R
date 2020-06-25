@@ -107,7 +107,6 @@ tailor.learn = function(data, params = NULL,
 
     mixtures_1D = get_1D_mixtures(data[,params], params, max_mixture = 3,
                                     sample_fraction = sample_fraction, seed = seed,
-                                    prior_BIC = 100,
                                     parallel = parallel,
                                     verbose = (verbose >= 1))
 
@@ -203,9 +202,6 @@ tailor.learn = function(data, params = NULL,
   {
     sigma = phenobin_parameters$variances[component,,]
     mixture$variance$sigma[,,component] = sigma
-
-    de = det(sigma)
-    cat(component, de, mixture$pro[component], "\n")
   }
 
 
@@ -419,7 +415,7 @@ tailor.predict = function(data, tailor_obj, n_batch = 64,
 #' for each marker.
 #' @export
 get_1D_mixtures = function(data, params, max_mixture = 3,
-                           prior_BIC = 600, sample_fraction = 0.2, seed = NULL,
+                           prior_BIC = NULL, sample_fraction = 0.2, seed = NULL,
                            parallel = FALSE,
                            verbose = FALSE)
 {
@@ -444,6 +440,11 @@ get_1D_mixtures = function(data, params, max_mixture = 3,
   {
     sample_size = ceiling(sample_fraction * nrow(data))
     sel = sample(nrow(data), sample_size)
+  }
+
+  if (is.null(prior_BIC))
+  {
+    prior_BIC = exp(-4 + 0.732 * log(length(sel)))
   }
 
   if (parallel)
@@ -681,6 +682,8 @@ plot_tsne_bin_centers = function(tailor_obj)
   g
 }
 
+
+
 #' @title plot_tsne_global
 #' @description Subsample the entire dataset, and compute a 2D t-SNE embedding.
 #' Plot the embedding twice, color coded by cluster membership and major phenotype, respectively.
@@ -724,7 +727,7 @@ plot_tsne_global = function(data, tailor_obj, tailor_pred, defs, seed = NULL)
   colnames(tsne) = c("tsne_1", "tsne_2")
   tsne = data.frame(tsne)
   tsne$cluster = tailor_pred$cluster_mapping[sel]
-  tsne$cluster_pheno = tailor_obj
+  tsne$cluster_pheno = as.factor(tailor_obj$cat_clusters$labels[tsne$cluster])
   tsne$cluster = as.factor(tsne$cluster)
 
 
@@ -754,47 +757,48 @@ plot_tsne_global = function(data, tailor_obj, tailor_pred, defs, seed = NULL)
 
 
   # Display plots
-  mycolors = c(brewer.pal(name="Set1", n = 9), brewer.pal(name="Set3", n = 12))
-  mycolors = mycolors[c(1:2, 10:21)]
+  # mycolors = c(brewer.pal(name="Set1", n = 9), brewer.pal(name="Set3", n = 12))
+  # mycolors = mycolors[c(1:2, 10:21)]
 
-  g = ggplot(tsne, aes(x=.data$tsne_1, y=.data$tsne_2, color = .data$phenotype)) +
-      geom_point() +
-      scale_color_manual(values = mycolors)
+  g = ggplot(tsne[which(tsne$phenotype != "Other"),],
+             aes(x=.data$tsne_1, y=.data$tsne_2, color = .data$phenotype)) +
+      geom_point(alpha = 0.35)
+      # scale_color_manual(values = mycolors)
 
   print(g)
 
+  # ncol = min(5, ceiling(sqrt(length(tsne$cluster_pheno))) )
+  # ggplot(tsne, aes(x=.data$tsne_1, y=.data$tsne_2, color = .data$cluster)) +
+  #   geom_point() +
+  #   # scale_color_manual(values = mycolors) +
+  #   facet_wrap(~ .data$cluster_pheno, ncol = ncol)
+
+  xlim = ggplot_build(g)$layout$panel_scales_x[[1]]$range$range
+  ylim = ggplot_build(g)$layout$panel_scales_y[[1]]$range$range
 
 
-  # plot_list = list()
-  # g = ggplot(tsne, aes(x=.data$tsne_1, y=.data$tsne_2)) +
-  #   geom_point(aes(color = .data$phenotype)) +
-  #   scale_color_manual(values = mycolors)
-  # plot_list[[1]] = g
-  #
-  # xlim = ggplot_build(g)$layout$panel_scales_x[[1]]$range$range
-  # ylim = ggplot_build(g)$layout$panel_scales_y[[1]]$range$range
-  #
-  # len = length(tailor_obj$cat_clusters$labels)
-  # nplot = ceiling(len/7)
-  #
-  # for (plot_index in seq(1:nplot))
-  # {
-  #   start = 7 * (plot_index - 1) + 1
-  #   end   = min(7 * plot_index, len)
-  #   sel = which(tsne$cluster %in% c(start:end))
-  #
-  #   g = ggplot(tsne[sel,], aes(x=.data$tsne_1, y=.data$tsne_2)) +
-  #     geom_point(aes(color = .data$cluster)) +
-  #     scale_color_brewer(palette = "Dark2") +
-  #     scale_x_continuous(limits = xlim) +
-  #     scale_y_continuous(limits = ylim)
-  #
-  #   plot_list[[plot_index + 1]] = g
-  # }
-  #
-  # ncol = ceiling(sqrt(nplot))
-  # gridExtra::grid.arrange(grobs = plot_list, ncol = ncol)
+  plot_list = list()
+
+  majphenos = levels(tsne$cluster_pheno)
+
+  for (majpheno in majphenos)
+  {
+    sel = which(tsne$cluster_pheno == majpheno)
+
+    g = ggplot(tsne[sel,], aes(x=.data$tsne_1, y=.data$tsne_2)) +
+      geom_point(aes(color = .data$cluster), alpha = 0.35) +
+      scale_x_continuous(limits = xlim) +
+      scale_y_continuous(limits = ylim) +
+      labs(title = majpheno, x = "", y = "")
+
+    plot_list[[majpheno]] = g
+  }
+
+  ncol = ceiling(sqrt(length(majphenos)))
+  gridExtra::grid.arrange(grobs = plot_list, ncol = ncol)
 }
+
+
 
 
 #' @title plot_kdes_global
