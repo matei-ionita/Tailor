@@ -76,6 +76,15 @@ print_kdes_with_cutoffs = function(data, cutoffs, parameters)
   # print kdes with vertical lines displaying cutoffs
   ###################################################
 
+  if(is(data, "flowSet"))
+  {
+    data = suppressWarnings(as(data, "flowFrame"))
+    flowCore::exprs(data) = flowCore::exprs(data)[,which(flowCore::colnames(data) != "Original")]
+  }
+
+  if(is(data, "flowFrame")) data = flowCore::exprs(data)
+
+
   global_kdes = make_kdes_global(data, parameters)
 
   # determine size of the grid of plots
@@ -121,6 +130,7 @@ categorical_merging = function(pros, means, cutoffs, params)
 
   for (param in params)
   {
+
     if (is.null(cutoffs[[param]]))
     {
       for (i in seq(n))

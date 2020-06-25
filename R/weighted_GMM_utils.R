@@ -171,6 +171,7 @@ e_step = function(data, mixture, params,
   k = length(mixture$pro)
   d = ncol(data)
 
+
   probs = matrix(0, nrow = n, ncol = k)
 
   # For each cluster, compute the probability that the datapoints belong to it
@@ -194,10 +195,15 @@ e_step = function(data, mixture, params,
 
   # Normalize the probability along each row
 
+
   probsum = apply(probs, 1, sum)
+
+
+
   min = min(which(probsum > 0))
   probsum[probsum == 0] = min # To avoid division by 0
   probs = probs/probsum
+
 
 
   # Just for debugging, plot cluster assignments
@@ -227,6 +233,7 @@ m_step = function(data, mixture, event_probabilities, params,
 
 
   mixture$pro = apply(weighted_probs, 2, sum)
+
 
   mixture$mean = t(weighted_probs)%*%data / mixture$pro
 

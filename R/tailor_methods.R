@@ -87,11 +87,11 @@ tailor.learn = function(data, params = NULL,
 
   if (is.null(min_bin_size))
   {
-    min_bin_size = ceiling(nrow(data) / 1e5)
+    min_bin_size = max(5,ceiling(nrow(data) / 1e5))
   }
   if(is.null(max_bin_size))
   {
-    max_bin_size = ceiling(nrow(data) / 1e3)
+    max_bin_size = max(50,ceiling(nrow(data) / 1e3))
   }
 
   # preliminary binning
@@ -119,7 +119,7 @@ tailor.learn = function(data, params = NULL,
   } else
   {
     # If given path to pre-computed mixtures, load them
-    tailor_params = names(mixtures_1D$mixtures)
+    params = names(mixtures_1D$mixtures)
   }
 
 
@@ -148,6 +148,8 @@ tailor.learn = function(data, params = NULL,
     cat("Maximum bin size: ", sizes[1], "\n")
   }
 
+
+
   phenobin_parameters = find_phenobin_mean(data = data,
                                            predictions = phenobin_summary$predictions,
                                            bins = bins, sizes = sizes,
@@ -158,9 +160,11 @@ tailor.learn = function(data, params = NULL,
                                            seed = seed,
                                            parallel = parallel,
                                            verbose = (verbose >= 1))
-  repr_means = phenobin_parameters$means
-  repr_variances = phenobin_parameters$variances
-  repr_sizes = phenobin_parameters$sizes
+
+  nonzero = which(phenobin_parameters$sizes > 0)
+  repr_sizes = phenobin_parameters$sizes[nonzero]
+  repr_means = phenobin_parameters$means[nonzero,]
+  repr_variances = phenobin_parameters$variances[nonzero,,]
 
 
   if (verbose > 1)
@@ -170,8 +174,13 @@ tailor.learn = function(data, params = NULL,
   }
 
 
+
   # Prepare initialization of bulk mixture model
-  init_bins = c(1:mixture_components)
+  candidate_bins = c(1:mixture_components)
+  init_bins = which(sizes[candidate_bins] > 3 * min_bin_size) # heuristic: strive to improve
+  lost = length(candidate_bins) - length(init_bins)
+  if (lost > 0) cat("Warning: dropped", lost, "mixture components due to too few events at initialization.\n")
+
   populous = which(phenobin_summary$predictions %in% bins[init_bins])
   phenobin_parameters = find_phenobin_mean(data = data,
                                            predictions = phenobin_summary$predictions,
@@ -194,6 +203,9 @@ tailor.learn = function(data, params = NULL,
   {
     sigma = phenobin_parameters$variances[component,,]
     mixture$variance$sigma[,,component] = sigma
+
+    de = det(sigma)
+    cat(component, de, mixture$pro[component], "\n")
   }
 
 
@@ -223,14 +235,16 @@ tailor.learn = function(data, params = NULL,
                             verbose = (verbose >= 1))
   }
 
+  if(verbose > 0) print("Categorical merging...")
+
   # Use the 1D mixture models to decide on +/- cutoffs
-  cutoffs = get_1D_cutoffs(mixtures_1D$mixtures, mixtures_1D$to_merge, tailor_params)
+  cutoffs = get_1D_cutoffs(mixtures_1D$mixtures, mixtures_1D$to_merge, params)
 
   # Categorical merging
   cat_clusters = categorical_merging(fit$mixture$pro,
                              fit$mixture$mean,
                              cutoffs,
-                             tailor_params)
+                             params)
 
   if (do_tsne)
   {
@@ -710,6 +724,7 @@ plot_tsne_global = function(data, tailor_obj, tailor_pred, defs, seed = NULL)
   colnames(tsne) = c("tsne_1", "tsne_2")
   tsne = data.frame(tsne)
   tsne$cluster = tailor_pred$cluster_mapping[sel]
+  tsne$cluster_pheno = tailor_obj
   tsne$cluster = as.factor(tsne$cluster)
 
 
@@ -742,35 +757,43 @@ plot_tsne_global = function(data, tailor_obj, tailor_pred, defs, seed = NULL)
   mycolors = c(brewer.pal(name="Set1", n = 9), brewer.pal(name="Set3", n = 12))
   mycolors = mycolors[c(1:2, 10:21)]
 
-  plot_list = list()
-  g = ggplot(tsne, aes(x=.data$tsne_1, y=.data$tsne_2)) +
-    geom_point(aes(color = .data$phenotype)) +
-    scale_color_manual(values = mycolors)
-  plot_list[[1]] = g
+  g = ggplot(tsne, aes(x=.data$tsne_1, y=.data$tsne_2, color = .data$phenotype)) +
+      geom_point() +
+      scale_color_manual(values = mycolors)
 
-  xlim = ggplot_build(g)$layout$panel_scales_x[[1]]$range$range
-  ylim = ggplot_build(g)$layout$panel_scales_y[[1]]$range$range
+  print(g)
 
-  len = length(tailor_obj$cat_clusters$labels)
-  nplot = ceiling(len/7)
 
-  for (plot_index in seq(1:nplot))
-  {
-    start = 7 * (plot_index - 1) + 1
-    end   = min(7 * plot_index, len)
-    sel = which(tsne$cluster %in% c(start:end))
 
-    g = ggplot(tsne[sel,], aes(x=.data$tsne_1, y=.data$tsne_2)) +
-      geom_point(aes(color = .data$cluster)) +
-      scale_color_brewer(palette = "Dark2") +
-      scale_x_continuous(limits = xlim) +
-      scale_y_continuous(limits = ylim)
-
-    plot_list[[plot_index + 1]] = g
-  }
-
-  ncol = ceiling(sqrt(nplot))
-  gridExtra::grid.arrange(grobs = plot_list, ncol = ncol)
+  # plot_list = list()
+  # g = ggplot(tsne, aes(x=.data$tsne_1, y=.data$tsne_2)) +
+  #   geom_point(aes(color = .data$phenotype)) +
+  #   scale_color_manual(values = mycolors)
+  # plot_list[[1]] = g
+  #
+  # xlim = ggplot_build(g)$layout$panel_scales_x[[1]]$range$range
+  # ylim = ggplot_build(g)$layout$panel_scales_y[[1]]$range$range
+  #
+  # len = length(tailor_obj$cat_clusters$labels)
+  # nplot = ceiling(len/7)
+  #
+  # for (plot_index in seq(1:nplot))
+  # {
+  #   start = 7 * (plot_index - 1) + 1
+  #   end   = min(7 * plot_index, len)
+  #   sel = which(tsne$cluster %in% c(start:end))
+  #
+  #   g = ggplot(tsne[sel,], aes(x=.data$tsne_1, y=.data$tsne_2)) +
+  #     geom_point(aes(color = .data$cluster)) +
+  #     scale_color_brewer(palette = "Dark2") +
+  #     scale_x_continuous(limits = xlim) +
+  #     scale_y_continuous(limits = ylim)
+  #
+  #   plot_list[[plot_index + 1]] = g
+  # }
+  #
+  # ncol = ceiling(sqrt(nplot))
+  # gridExtra::grid.arrange(grobs = plot_list, ncol = ncol)
 }
 
 
@@ -797,16 +820,13 @@ plot_kdes_global = function(data, params)
     df = data.frame(global_kdes[[param]])
     g = ggplot(df, aes(x=.data$x, y=.data$y)) +
       geom_line() +
-      ggtitle(param) +
-      theme(panel.background = element_rect(fill = "white"),
-            axis.line = element_line(),
-            plot.title = element_text(hjust = 0.5),
-            axis.title.x = element_blank(), axis.title.y = element_blank() )
+      labs(title = param, x = "", y = "") +
+      theme_bw()
 
     plot_list[[param]] = g
   }
 
-  ncol = ceiling(sqrt(length(params)))
+  ncol = min(5, ceiling(sqrt(length(params))))
   gridExtra::grid.arrange(grobs = plot_list, ncol = ncol)
 }
 
