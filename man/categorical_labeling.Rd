@@ -19,3 +19,15 @@ If major phenotype definitions are available (e.g. "CD4 Naive"),
 based on only a few of the markers
 in the panel, label each categorical cluster by one of these major phenotypes.
 }
+\examples{
+fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+load(fileName)
+tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
+tailor_obj <- tailor_learn(data = fs_old,
+                          params = tailor_params,
+                          mixture_components = 50)
+
+defs <- read.csv("~/git/R/packages/Tailor/inst/extdata/pheno_definitions.csv",
+                 row.names = 1, stringsAsFactors=FALSE)
+tailor_obj <- categorical_labeling(tailor_obj, defs)
+}

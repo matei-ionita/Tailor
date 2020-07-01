@@ -2,7 +2,7 @@
 % Please edit documentation in R/tailor_methods.R
 \name{tailor_predict}
 \alias{tailor_predict}
-\title{tailor.predict}
+\title{tailor_predict}
 \usage{
 tailor_predict(
   data,
@@ -36,4 +36,13 @@ Takes as input a tailor object and some data (could be the data used
 to learn the tailor object, or some new data). Computes, for each event, the mixture
 component from which it is most likely drawn, then maps this mixture component to its
 corresponding categorical cluster.
+}
+\examples{
+fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+load(fileName)
+tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
+tailor_obj <- tailor_learn(data = fs_old,
+                          params = tailor_params,
+                          mixture_components = 50)
+tailor_pred <- tailor_predict(fs_old, tailor_obj)
 }

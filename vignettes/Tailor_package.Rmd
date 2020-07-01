@@ -38,8 +38,8 @@ Some preparations: load the package, some data, choose the parameters to be used
 
 ```{r preparations, fig.align = "center", fig.width=8, fig.height=5}
 library(Tailor)
-filename = system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
-load(filename)   # fs_old
+fileName = system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+load(fileName)   # fs_old
 
 tailor_params = flowCore::colnames(fs_old)[c(7:9, 11:22)]
 data = fs_old[[4]]
@@ -56,7 +56,6 @@ n_components = 50
 
 tailor_obj = tailor_learn(data = data,
                           params = tailor_params,
-                          seed = seed,
                           mixture_components = n_components)
 ```
 
@@ -101,7 +100,7 @@ tailor_pred = tailor_predict(data = data,
 Use `plot_tsne_clusters()` to view a t-SNE embedding to 2D of the categorical cluster centroids. They are color-coded by major phenotype, and the size of the dots depends logarithmically on cluster size.
 
 ```{r tailor_plot_clusters, fig.align= "center", fig.width=6, fig.height=4}
-plot_tsne_clusters(tailor_obj, tailor_pred, seed = seed)
+plot_tsne_clusters(tailor_obj, tailor_pred)
 ```
 
 
@@ -114,8 +113,7 @@ In this step, events are placed into phenotypically similar bins, and one or mor
 
 ```{r 1D_mixtures, fig.width=8, fig.height=4}
 mixtures_1D = get_1D_mixtures(data, tailor_params,
-                              max_mixture = 3,
-                              seed = seed)
+                              max_mixture = 3)
 
 inspect_1D_mixtures(data, mixtures_1D, tailor_params)
 ```
@@ -138,7 +136,6 @@ We can pass the 1D mixtures as an argument to `tailor_learn()`, and they will be
 tailor_obj = tailor_learn(data = data,
                           params = tailor_params,
                           mixtures_1D = mixtures_1D,
-                          seed = seed,
                           mixture_components = n_components)
 
 tailor_obj = categorical_labeling(tailor_obj, defs)
@@ -149,13 +146,13 @@ tailor_pred = tailor_predict(data = data,
 We can visualize the t-SNE embeddings of the new categorical clusters.
 
 ```{r tailor_plot_clusters_advanced, fig.align= "center", fig.width=6, fig.height=4}
-plot_tsne_clusters(tailor_obj, tailor_pred, seed = seed)
+plot_tsne_clusters(tailor_obj, tailor_pred)
 ```
 
 Finally, we can visualize the Tailor categorical clusters in a t-SNE embedding of the original data (or a uniform sample thereof, to speed up computation). The method `plot_tsne_global()` first displays the t-SNE embedding color-coded by major phenotype. Then it picks Tailor clusters, in groups of at most seven, and plots only those datapoints belonging to the chosen clusters. This should aid in visualizing the correspondence between Tailor clusters and major phenotypes. Note that there's no reason to expect the t-SNE embedding to agree with the Tailor clusters: t-SNE and Tailor are very different algorithms, which highlight different features in the data.
 
 ```{r global_tsne, fig.align= "center", fig.width=12, fig.height=8}
-plot_tsne_global(data, tailor_obj, tailor_pred, defs, seed = seed)
+plot_tsne_global(data, tailor_obj, tailor_pred, defs)
 ```
 
 ## Remarks

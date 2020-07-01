@@ -32,3 +32,12 @@ Updated version of mixtures_1D.
 After visual inspection of 1D mixtures, manually specify the number of
 mixture components to learn for some of the markers.
 }
+\examples{
+fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+load(fileName)
+tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
+mixtures_1D <- get_1D_mixtures(fs_old, tailor_params)
+
+to_customize <- list("CD127BV421" = 2)
+mixtures_1D <- customize_1D_mixtures(fs_old, to_customize, mixtures_1D)
+}

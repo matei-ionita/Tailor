@@ -22,3 +22,11 @@ Displays, for each marker, three side-by-side plots, giving a kernel density est
 for the data and that marker, the Gaussian mixture, and the separate mixture components,
 respectively.
 }
+\examples{
+fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+load(fileName)
+tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
+mixtures_1D <- get_1D_mixtures(fs_old, tailor_params)
+
+inspect_1D_mixtures(fs_old, mixtures_1D, tailor_params)
+}

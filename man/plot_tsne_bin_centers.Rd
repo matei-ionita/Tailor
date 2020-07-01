@@ -16,3 +16,12 @@ population. Color coded by major phenotype.
 \description{
 Plot a t-SNE reduction to 2d of the cluster centroids.
 }
+\examples{
+fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+load(fileName)
+tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
+tailor_obj <- tailor_learn(data = fs_old,
+                          params = tailor_params,
+                          mixture_components = 50)
+plot_tsne_bin_centers(tailor_obj)
+}

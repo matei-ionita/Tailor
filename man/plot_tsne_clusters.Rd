@@ -17,3 +17,14 @@ A 2d reduced plot of cluster centroid, color-coded by major phenotype.
 \description{
 Plot a t-SNE reduction to 2d of the cluster centroids.
 }
+\examples{
+fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+load(fileName)
+tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
+tailor_obj <- tailor_learn(data = fs_old,
+                          params = tailor_params,
+                          mixture_components = 50)
+tailor_pred <- tailor_predict(fs_old, tailor_obj)
+
+plot_tsne_clusters(tailor_obj, tailor_pred)
+}

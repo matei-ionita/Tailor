@@ -2,7 +2,7 @@
 % Please edit documentation in R/tailor_methods.R
 \name{tailor_learn}
 \alias{tailor_learn}
-\title{tailor.learn}
+\title{tailor_learn}
 \usage{
 tailor_learn(
   data,
@@ -64,4 +64,25 @@ computes a preliminary binning of the data, then computes a mixture model using
 a weighted version of the expectation-maximization (EM) algorithm,
 and finally merges mixture components which are positive/negative for the same
 markers, using adaptive thresholds.
+}
+\examples{
+# Load data and define analytical parameters
+fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+load(fileName)
+tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
+
+# Run with default settings
+tailor_obj <- tailor_learn(data = fs_old,
+                          params = tailor_params,
+                          mixture_components = 50)
+
+# Alternatively, customize the 1D mixtures used for binning step
+mixtures_1D <- get_1D_mixtures(fs_old, tailor_params)
+to_customize <- list("CD127BV421" = 2)
+mixtures_1D <- customize_1D_mixtures(fs_old, to_customize, mixtures_1D)
+
+tailor_obj <- tailor_learn(data = fs_old,
+                          params = tailor_params,
+                          mixture_components = 50,
+                          mixtures_1D = mixtures_1D)
 }

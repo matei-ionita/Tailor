@@ -42,3 +42,9 @@ of tailor. It is difficult to find settings which work for all datasets. Therefo
 recommended to inspect the results with inspect_1D_mixtures, and run get_1D_mixtures_custom
 for problematic markers.
 }
+\examples{
+fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+load(fileName)
+tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
+mixtures_1D <- get_1D_mixtures(fs_old, tailor_params)
+}

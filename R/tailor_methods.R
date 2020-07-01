@@ -22,7 +22,7 @@
 #' @importFrom rlang .data
 NULL
 
-#' @title tailor.learn
+#' @title tailor_learn
 #' @description This function learns a tailor model from input data. It
 #' computes a preliminary binning of the data, then computes a mixture model using
 #' a weighted version of the expectation-maximization (EM) algorithm,
@@ -56,6 +56,26 @@ NULL
 #'   the model: phenotype, cluster centers, and a mapping from mixture components to categorical clusters.}
 #'   \item{tsne_centers}{Optional: a dimensional reduction to 2D of the bin centers.}
 #' }
+#' @examples
+#' # Load data and define analytical parameters
+#' fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+#' load(fileName)
+#' tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
+#'
+#' # Run with default settings
+#' tailor_obj <- tailor_learn(data = fs_old,
+#'                           params = tailor_params,
+#'                           mixture_components = 50)
+#'
+#' # Alternatively, customize the 1D mixtures used for binning step
+#' mixtures_1D <- get_1D_mixtures(fs_old, tailor_params)
+#' to_customize <- list("CD127BV421" = 2)
+#' mixtures_1D <- customize_1D_mixtures(fs_old, to_customize, mixtures_1D)
+#'
+#' tailor_obj <- tailor_learn(data = fs_old,
+#'                           params = tailor_params,
+#'                           mixture_components = 50,
+#'                           mixtures_1D = mixtures_1D)
 #' @export
 tailor_learn = function(data, params = NULL,
                         mixture_components = 200,
@@ -259,7 +279,7 @@ tailor_learn = function(data, params = NULL,
 
 
 
-#' @title tailor.predict
+#' @title tailor_predict
 #' @description Takes as input a tailor object and some data (could be the data used
 #' to learn the tailor object, or some new data). Computes, for each event, the mixture
 #' component from which it is most likely drawn, then maps this mixture component to its
@@ -275,6 +295,14 @@ tailor_learn = function(data, params = NULL,
 #' @param verbose Boolean flag; if true, outputs timing and milestone information.
 #' @return Two atomic vectors of integers, one giving the mixture component, and the other
 #' the categorical cluster, for each event.
+#' @examples
+#' fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+#' load(fileName)
+#' tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
+#' tailor_obj <- tailor_learn(data = fs_old,
+#'                           params = tailor_params,
+#'                           mixture_components = 50)
+#' tailor_pred <- tailor_predict(fs_old, tailor_obj)
 #' @export
 tailor_predict = function(data, tailor_obj, n_batch = 64,
                           parallel = FALSE, verbose = FALSE)
@@ -402,6 +430,11 @@ tailor_predict = function(data, tailor_obj, n_batch = 64,
 #' @param verbose Boolean flag; if true, outputs timing and milestone information.
 #' @return A named list of 1D mixture models, giving mixture proportions, means and variances
 #' for each marker.
+#' @examples
+#' fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+#' load(fileName)
+#' tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
+#' mixtures_1D <- get_1D_mixtures(fs_old, tailor_params)
 #' @export
 get_1D_mixtures = function(data, params, max_mixture = 3,
                            prior_BIC = NULL, sample_fraction = 0.2,
@@ -434,7 +467,6 @@ get_1D_mixtures = function(data, params, max_mixture = 3,
   {
     prior_BIC = exp(-3.7 + 0.732 * log(5 * length(sel)))
   }
-  cat("prior BIC:", prior_BIC, "\n")
 
   if (parallel)
   {
@@ -518,6 +550,14 @@ get_1D_mixtures = function(data, params, max_mixture = 3,
 #' calculation of 1D mixture components, to improve runtime.
 #' @param verbose Boolean flag; if true, outputs timing and milestone information.
 #' @return Updated version of mixtures_1D.
+#' @examples
+#' fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+#' load(fileName)
+#' tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
+#' mixtures_1D <- get_1D_mixtures(fs_old, tailor_params)
+#'
+#' to_customize <- list("CD127BV421" = 2)
+#' mixtures_1D <- customize_1D_mixtures(fs_old, to_customize, mixtures_1D)
 #' @export
 customize_1D_mixtures = function(data, to_customize,
                                  mixtures_1D,
@@ -553,6 +593,13 @@ customize_1D_mixtures = function(data, to_customize,
 #' @param mixtures_1D 1D mixture models, as produced by get_1D_mixtures.
 #' @param params A list of markers to use; must be subset of colnames(data).
 #' @return Side-by-side plots of kdes and mixture components.
+#' @examples
+#' fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+#' load(fileName)
+#' tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
+#' mixtures_1D <- get_1D_mixtures(fs_old, tailor_params)
+#'
+#' inspect_1D_mixtures(fs_old, mixtures_1D, tailor_params)
 #' @export
 inspect_1D_mixtures = function(data, mixtures_1D, params)
 {
@@ -580,6 +627,17 @@ inspect_1D_mixtures = function(data, mixtures_1D, params)
 #' @param tailor_obj A tailor object, as obtained from tailor.learn.
 #' @param defs A matrix or data frame giving definitions of major phenotypes.
 #' @return The tailor object, with updated information about categorical labels.
+#' @examples
+#' fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+#' load(fileName)
+#' tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
+#' tailor_obj <- tailor_learn(data = fs_old,
+#'                           params = tailor_params,
+#'                           mixture_components = 50)
+#'
+#' defs <- read.csv("~/git/R/packages/Tailor/inst/extdata/pheno_definitions.csv",
+#'                  row.names = 1, stringsAsFactors=FALSE)
+#' tailor_obj <- categorical_labeling(tailor_obj, defs)
 #' @export
 categorical_labeling = function(tailor_obj, defs)
 {
@@ -626,6 +684,16 @@ categorical_labeling = function(tailor_obj, defs)
 #' @param tailor_obj A tailor object, as obtained from tailor.learn.
 #' @param tailor_pred A list of cluster assignments, as obtained from tailor.predict.
 #' @return A 2d reduced plot of cluster centroid, color-coded by major phenotype.
+#' @examples
+#' fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+#' load(fileName)
+#' tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
+#' tailor_obj <- tailor_learn(data = fs_old,
+#'                           params = tailor_params,
+#'                           mixture_components = 50)
+#' tailor_pred <- tailor_predict(fs_old, tailor_obj)
+#'
+#' plot_tsne_clusters(tailor_obj, tailor_pred)
 #' @export
 plot_tsne_clusters = function(tailor_obj, tailor_pred)
 {
@@ -649,6 +717,14 @@ plot_tsne_clusters = function(tailor_obj, tailor_pred)
 #' @param tailor_obj A tailor object, as obtained from tailor.learn.
 #' @return A 2d reduced plot of bin centers, which can be seen as representatives for the cell
 #' population. Color coded by major phenotype.
+#' @examples
+#' fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+#' load(fileName)
+#' tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
+#' tailor_obj <- tailor_learn(data = fs_old,
+#'                           params = tailor_params,
+#'                           mixture_components = 50)
+#' plot_tsne_bin_centers(tailor_obj)
 #' @export
 plot_tsne_bin_centers = function(tailor_obj)
 {
