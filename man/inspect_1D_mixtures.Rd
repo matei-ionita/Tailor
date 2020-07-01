@@ -13,6 +13,9 @@ inspect_1D_mixtures(data, mixtures_1D, params)
 
 \item{params}{A list of markers to use; must be subset of colnames(data).}
 }
+\value{
+Side-by-side plots of kdes and mixture components.
+}
 \description{
 Plot the result of 1D mixture model calculation for visual inspection.
 Displays, for each marker, three side-by-side plots, giving a kernel density estimate

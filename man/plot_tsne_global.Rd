@@ -18,7 +18,7 @@ plot_tsne_global(data, tailor_obj, tailor_pred, defs, seed = NULL)
 \item{seed}{A seed for the random generator, used in the initialization of t-SNE.}
 }
 \value{
-A 2d embeddings, color-coded by cluster membershi and major phenotype.
+2d embeddings, color-coded by cluster membershi and major phenotype.
 }
 \description{
 Subsample the entire dataset, and compute a 2D t-SNE embedding.

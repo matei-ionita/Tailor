@@ -11,6 +11,9 @@ plot_kdes_global(data, params)
 
 \item{params}{A list of markers to use; must be subset of colnames(data).}
 }
+\value{
+Plots of kernel density estimate for each chosen parameter.
+}
 \description{
 Plot 1D kdes of a dataset for visual inspection.
 }

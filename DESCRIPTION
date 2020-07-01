@@ -3,7 +3,7 @@ Type: Package
 Title: Gaussian mixture modeling for heavy-tailed distributions in Flow Cytometry data
 Version: 0.1.0
 Author: Matei Ionita
-Maintainer: Matei Ionita <matei.ionita@gmail.com>
+Maintainer: Matei Ionita <matei@sas.upenn.edu>
 Description: Tailor provides a Gaussian mixture modeling workflow for working with
     flow cytometry data. The first step is a preliminary binning of the data, which
     is used for both weighted subsampling and initialization of the main algorithm. This
@@ -17,11 +17,14 @@ Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
 biocViews:
+    CellBiology,
+    CellBasedAssays,
+    Clustering,
+    FlowCytometry
 Depends: 
-    R (>= 3.5.0)
+    R (>= 3.6.0)
 Imports: 
     flowCore,
-    wadeTools, 
     cluster,
     KernSmooth,
     Rtsne,
@@ -39,9 +42,6 @@ Imports:
     grDevices,
     RColorBrewer,
     rlang
-Remotes:
-    bioc::release/flowCore,
-    rogerswt/wadeTools
-RoxygenNote: 7.1.0.9000
+RoxygenNote: 7.1.1
 Suggests: knitr, rmarkdown
 VignetteBuilder: knitr
