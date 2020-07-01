@@ -11,7 +11,6 @@ tailor_learn(
   min_bin_size = NULL,
   max_bin_size = NULL,
   mixtures_1D = NULL,
-  seed = NULL,
   do_tsne = FALSE,
   do_variance_correction = TRUE,
   parallel = FALSE,
@@ -36,9 +35,6 @@ weighted EM algorithm closely approximates a run of vanilla EM on the entire dat
 
 \item{mixtures_1D}{Pre-computed 1D mixture models, to be used for binning.
 These are computed from scratch if not provided.}
-
-\item{seed}{A seed for the random number generator, to be used in the initialization of the bin
-centers.}
 
 \item{do_tsne}{Boolean flag; if true, computes t-SNE reduction to 2D of the bin centers,
 for use in visualizations.}

@@ -10,7 +10,6 @@ get_1D_mixtures(
   max_mixture = 3,
   prior_BIC = NULL,
   sample_fraction = 0.2,
-  seed = NULL,
   parallel = FALSE,
   verbose = FALSE
 )
@@ -28,10 +27,6 @@ Information Criterion (BIC).}
 
 \item{sample_fraction}{A number between 0 and 1: the fraction of data points used in the
 calculation of 1D mixture components, to improve runtime.}
-
-\item{seed}{A seed for the random generator, used for subsampling and for the initialization
-of the 1D mixture components. The results are qualitatively the same, irrespective of the
-seed chosen.}
 
 \item{parallel}{Boolean flag; if true, uses multithreading to process markers in parallel.}
 

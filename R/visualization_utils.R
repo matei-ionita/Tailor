@@ -87,14 +87,13 @@ plot_cluster_histograms = function(global_kdes, cluster = NULL,
 
 
 
-get_tsne_centers = function(data, probs, seed = 137)
+get_tsne_centers = function(data, probs)
 {
   # Get t-SNE reduction to 2D of bin centers,
   # and map each bin to its most likely cluster
 
   n_items = nrow(data)
   perplexity = min((n_items - 1)/3, 30)
-  set.seed(seed)
 
   res = Rtsne(data, perplexity = perplexity)$Y
   cluster = apply(probs, 1, which.max)
@@ -106,14 +105,13 @@ get_tsne_centers = function(data, probs, seed = 137)
 }
 
 
-get_tsne_clusters = function(tailor_obj, seed = NULL)
+get_tsne_clusters = function(tailor_obj)
 {
   # Get t-SNE reduction to 2D of cluster centroids
   centers = tailor_obj$cat_clusters$centers
 
   n_items = nrow(centers)
   perplexity = min((n_items - 1)/3, 30)
-  if(!is.null(seed)) set.seed(seed)
 
   res = Rtsne(dist(centers), perplexity = perplexity)$Y
   colnames(res) = c("tsne_1", "tsne_2")

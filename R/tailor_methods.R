@@ -40,8 +40,6 @@ NULL
 #' weighted EM algorithm closely approximates a run of vanilla EM on the entire dataset.
 #' @param mixtures_1D Pre-computed 1D mixture models, to be used for binning.
 #' These are computed from scratch if not provided.
-#' @param seed A seed for the random number generator, to be used in the initialization of the bin
-#' centers.
 #' @param do_tsne Boolean flag; if true, computes t-SNE reduction to 2D of the bin centers,
 #' for use in visualizations.
 #' @param do_variance_correction Boolean flag; if true, corrects the variances of the mixture
@@ -63,7 +61,6 @@ tailor_learn = function(data, params = NULL,
                         mixture_components = 200,
                         min_bin_size = NULL, max_bin_size = NULL,
                         mixtures_1D = NULL,
-                        seed = NULL,
                         do_tsne = FALSE,
                         do_variance_correction = TRUE,
                         parallel = FALSE,
@@ -81,8 +78,6 @@ tailor_learn = function(data, params = NULL,
 
   if (is.null(params)) params = colnames(data)
   d = length(params)
-
-  if (!is.null(seed)) set.seed(seed)
 
   if (is.null(min_bin_size))
   {
@@ -105,7 +100,7 @@ tailor_learn = function(data, params = NULL,
     if (nrow(data) > 1e7) sample_fraction = 0.1
 
     mixtures_1D = get_1D_mixtures(data[,params], params, max_mixture = 3,
-                                    sample_fraction = sample_fraction, seed = seed,
+                                    sample_fraction = sample_fraction,
                                     parallel = parallel,
                                     verbose = (verbose >= 1))
 
@@ -155,7 +150,6 @@ tailor_learn = function(data, params = NULL,
                                            selected = populous,
                                            split_threshold = max_bin_size,
                                            compute_var = do_variance_correction,
-                                           seed = seed,
                                            parallel = parallel,
                                            verbose = (verbose >= 1))
 
@@ -187,7 +181,6 @@ tailor_learn = function(data, params = NULL,
                                            selected = populous,
                                            split_threshold = NULL,
                                            compute_var = TRUE,
-                                           seed = seed,
                                            parallel = parallel,
                                            verbose = (verbose >= 1))
 
@@ -244,7 +237,7 @@ tailor_learn = function(data, params = NULL,
   if (do_tsne)
   {
     if (verbose > 0) { print("Reducing phenobin centers to 2D...") }
-    tsne_centers = get_tsne_centers(data = repr_means, seed = seed, probs = fit$event_probabilities)
+    tsne_centers = get_tsne_centers(data = repr_means, probs = fit$event_probabilities)
   }
 
 
@@ -405,16 +398,13 @@ tailor_predict = function(data, tailor_obj, n_batch = 64,
 #' @param prior_BIC Make this larger to favor a smaller number of mixture components.
 #' @param sample_fraction A number between 0 and 1: the fraction of data points used in the
 #' calculation of 1D mixture components, to improve runtime.
-#' @param seed A seed for the random generator, used for subsampling and for the initialization
-#' of the 1D mixture components. The results are qualitatively the same, irrespective of the
-#' seed chosen.
 #' @param parallel Boolean flag; if true, uses multithreading to process markers in parallel.
 #' @param verbose Boolean flag; if true, outputs timing and milestone information.
 #' @return A named list of 1D mixture models, giving mixture proportions, means and variances
 #' for each marker.
 #' @export
 get_1D_mixtures = function(data, params, max_mixture = 3,
-                           prior_BIC = NULL, sample_fraction = 0.2, seed = NULL,
+                           prior_BIC = NULL, sample_fraction = 0.2,
                            parallel = FALSE,
                            verbose = FALSE)
 {
@@ -431,7 +421,6 @@ get_1D_mixtures = function(data, params, max_mixture = 3,
   data = data[,params]
 
   # Keep all data, or sample a subset to speed up
-  if (!is.null(seed)) set.seed(seed)
   if (sample_fraction == 1)
   {
     sel = seq_len(nrow(data))
@@ -463,8 +452,6 @@ get_1D_mixtures = function(data, params, max_mixture = 3,
       {
         param = colnames(data_param)[1]
 
-        set.seed(seed)
-
         # Use Bayesian information criterion to choose best k
         BIC = mclustBIC(data_param, G = seq_len(max_mixture), modelNames = "V", verbose = FALSE)
 
@@ -494,7 +481,6 @@ get_1D_mixtures = function(data, params, max_mixture = 3,
 
       dat = data[sel,param]
 
-      # set.seed(seed)
 
       # Use Bayesian information criterion to choose best k
       BIC = mclustBIC(dat, G = seq_len(max_mixture), modelNames = "V", verbose = FALSE)
@@ -530,16 +516,12 @@ get_1D_mixtures = function(data, params, max_mixture = 3,
 #' @param mixtures_1D 1D mixture models, obtained from get_1D_mixtures.
 #' @param sample_fraction A number between 0 and 1: the fraction of data points used in the
 #' calculation of 1D mixture components, to improve runtime.
-#' @param seed A seed for the random generator, used for subsampling and for the initialization
-#' of the 1D mixture components. The results are qualitatively the same, irrespective of the
-#' seed chosen.
 #' @param verbose Boolean flag; if true, outputs timing and milestone information.
 #' @return Updated version of mixtures_1D.
 #' @export
 customize_1D_mixtures = function(data, to_customize,
                                  mixtures_1D,
                                  sample_fraction = 0.2,
-                                 seed = NULL,
                                  verbose = FALSE)
 {
   if(is(data, "flowSet"))
@@ -555,7 +537,6 @@ customize_1D_mixtures = function(data, to_customize,
     mixtures_1D$mixtures[[param]] = get_1D_mixtures_custom(data, param,
                                                            k=to_customize[[param]],
                                                            sample_fraction = sample_fraction,
-                                                           seed = seed,
                                                            verbose = verbose)[[param]]
   }
 
@@ -644,12 +625,11 @@ categorical_labeling = function(tailor_obj, defs)
 #' @description Plot a t-SNE reduction to 2d of the cluster centroids.
 #' @param tailor_obj A tailor object, as obtained from tailor.learn.
 #' @param tailor_pred A list of cluster assignments, as obtained from tailor.predict.
-#' @param seed A seed for the random generator, used in the initialization of t-SNE.
 #' @return A 2d reduced plot of cluster centroid, color-coded by major phenotype.
 #' @export
-plot_tsne_clusters = function(tailor_obj, tailor_pred, seed = NULL)
+plot_tsne_clusters = function(tailor_obj, tailor_pred)
 {
-  res = get_tsne_clusters(tailor_obj, seed = seed)
+  res = get_tsne_clusters(tailor_obj)
   res$phenotype = as.factor(tailor_obj$cat_clusters$labels)
   res$logsize = log(tabulate(tailor_pred$cluster_mapping))
   res$logsize = res$logsize * 9 / mean(res$logsize)
@@ -692,10 +672,9 @@ plot_tsne_bin_centers = function(tailor_obj)
 #' @param tailor_obj A tailor object, as obtained from tailor.learn.
 #' @param tailor_pred A list of cluster assignments, as obtained from tailor.predict.
 #' @param defs Definitions of major phenotypes.
-#' @param seed A seed for the random generator, used in the initialization of t-SNE.
 #' @return 2d embeddings, color-coded by cluster membershi and major phenotype.
 #' @export
-plot_tsne_global = function(data, tailor_obj, tailor_pred, defs, seed = NULL)
+plot_tsne_global = function(data, tailor_obj, tailor_pred, defs)
 {
   # Preprocess input
   if(is(data, "flowSet"))
@@ -711,8 +690,6 @@ plot_tsne_global = function(data, tailor_obj, tailor_pred, defs, seed = NULL)
   params = colnames(tailor_obj$mixture$mean)
 
   # Subsample, because t-SNE is slow
-  if(!is.null(seed)) set.seed(seed)
-
   if (n_items > 1e4)
   {
     sel = sample(n_items, 1e4)

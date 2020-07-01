@@ -4,14 +4,12 @@
 \alias{plot_tsne_clusters}
 \title{plot_tsne_clusters}
 \usage{
-plot_tsne_clusters(tailor_obj, tailor_pred, seed = NULL)
+plot_tsne_clusters(tailor_obj, tailor_pred)
 }
 \arguments{
 \item{tailor_obj}{A tailor object, as obtained from tailor.learn.}
 
 \item{tailor_pred}{A list of cluster assignments, as obtained from tailor.predict.}
-
-\item{seed}{A seed for the random generator, used in the initialization of t-SNE.}
 }
 \value{
 A 2d reduced plot of cluster centroid, color-coded by major phenotype.

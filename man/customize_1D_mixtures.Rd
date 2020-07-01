@@ -9,7 +9,6 @@ customize_1D_mixtures(
   to_customize,
   mixtures_1D,
   sample_fraction = 0.2,
-  seed = NULL,
   verbose = FALSE
 )
 }
@@ -23,10 +22,6 @@ components to learn for each marker.}
 
 \item{sample_fraction}{A number between 0 and 1: the fraction of data points used in the
 calculation of 1D mixture components, to improve runtime.}
-
-\item{seed}{A seed for the random generator, used for subsampling and for the initialization
-of the 1D mixture components. The results are qualitatively the same, irrespective of the
-seed chosen.}
 
 \item{verbose}{Boolean flag; if true, outputs timing and milestone information.}
 }

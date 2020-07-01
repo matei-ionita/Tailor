@@ -43,7 +43,7 @@ load(filename)   # fs_old
 
 tailor_params = flowCore::colnames(fs_old)[c(7:9, 11:22)]
 data = fs_old[[4]]
-seed = 525
+set.seed(525)
 
 plot_kdes_global(data, tailor_params)
 ```

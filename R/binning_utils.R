@@ -34,12 +34,10 @@ find_phenobin_mean = function(data, predictions,
                               params, selected,
                               split_threshold = NULL,
                               compute_var = FALSE,
-                              seed = 135,
                               parallel = FALSE,
                               verbose = FALSE)
 {
   start.time = Sys.time()
-  set.seed(seed)
 
   n = nrow(data)
   k = length(bins)
@@ -394,14 +392,13 @@ get_phenobin_summary = function(phenobin)
 
 
 get_1D_mixtures_custom = function(data, params, k = 3,
-                                  sample_fraction = 0.2, seed = NULL,
+                                  sample_fraction = 0.2,
                                   separate_neg = FALSE,
                                   verbose = FALSE)
 {
   start.time = Sys.time()
   fit_list = list()
 
-  if (!is.null(seed)) set.seed(seed)
   # Keep all data, or sample a subset to speed up
   if (sample_fraction == 1)
   {

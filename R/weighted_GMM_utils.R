@@ -20,7 +20,6 @@
 #                   each row is the mean of one mixture component
 #             variance$sigma: an array with dim = (length(params), length(params),k)
 #                   each slice is the variance of one mixture component
-#     seed: a seed for the random generator, only used in random initialization
 #     max_steps: hard limit on number of steps for the weighted EM algorithm;
 #             from my experience, more than the default of 10 leads to overfitting
 #     relative_loglik_threshold: if the relative improvement of the log likelihood
@@ -39,7 +38,7 @@
 ################################################################################
 
 bulk_weighted_gmm = function(data, k, params, weights = NULL,
-                             initialize = NULL, seed = 91,
+                             initialize = NULL,
                              regularize_variance = TRUE, variance_correction = NULL,
                              max_steps = 10,
                              relative_loglik_threshold = 5e-3,
@@ -52,7 +51,7 @@ bulk_weighted_gmm = function(data, k, params, weights = NULL,
   if (is.null(initialize))
   {
     # Random initialization
-    mixture = initialize_mixture(data,k,params,seed,verbose)
+    mixture = initialize_mixture(data,k,params,verbose)
   }
   else
   {
@@ -139,7 +138,7 @@ bulk_weighted_gmm = function(data, k, params, weights = NULL,
 
 # Quick and dirty random initialization, if no other is provided by user
 # Works horribly for more than 2-3 dimensions
-initialize_mixture = function(data, k, params, seed, verbose = FALSE)
+initialize_mixture = function(data, k, params, verbose = FALSE)
 {
   # Random initialization, with identity variance: modify later
   mixture = list()
@@ -147,7 +146,6 @@ initialize_mixture = function(data, k, params, seed, verbose = FALSE)
 
   mixture$pro = rep(1/k, k)
 
-  set.seed(seed)
   s = sample(nrow(data), k)
   mixture$mean = data[s,params,drop = FALSE]
 

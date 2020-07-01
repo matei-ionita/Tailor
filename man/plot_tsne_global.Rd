@@ -4,7 +4,7 @@
 \alias{plot_tsne_global}
 \title{plot_tsne_global}
 \usage{
-plot_tsne_global(data, tailor_obj, tailor_pred, defs, seed = NULL)
+plot_tsne_global(data, tailor_obj, tailor_pred, defs)
 }
 \arguments{
 \item{data}{A flowSet, flowFrame or a matrix containing events along the rows, markers along columns.}
@@ -14,8 +14,6 @@ plot_tsne_global(data, tailor_obj, tailor_pred, defs, seed = NULL)
 \item{tailor_pred}{A list of cluster assignments, as obtained from tailor.predict.}
 
 \item{defs}{Definitions of major phenotypes.}
-
-\item{seed}{A seed for the random generator, used in the initialization of t-SNE.}
 }
 \value{
 2d embeddings, color-coded by cluster membershi and major phenotype.
