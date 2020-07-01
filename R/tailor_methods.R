@@ -5,7 +5,6 @@
 #' @import Rtsne
 #' @import KernSmooth
 #' @import cluster
-#' @import wadeTools
 #' @import mvtnorm
 #' @import ggplot2
 #' @importFrom gridExtra grid.arrange
@@ -60,7 +59,7 @@ NULL
 #'   \item{tsne_centers}{Optional: a dimensional reduction to 2D of the bin centers.}
 #' }
 #' @export
-tailor.learn = function(data, params = NULL,
+tailor_learn = function(data, params = NULL,
                         mixture_components = 200,
                         min_bin_size = NULL, max_bin_size = NULL,
                         mixtures_1D = NULL,
@@ -70,7 +69,7 @@ tailor.learn = function(data, params = NULL,
                         parallel = FALSE,
                         verbose = 0.5)
 {
-  start.time = Sys.time()
+  start_time = Sys.time()
 
   if(is(data, "flowSet"))
   {
@@ -175,7 +174,7 @@ tailor.learn = function(data, params = NULL,
 
 
   # Prepare initialization of bulk mixture model
-  candidate_bins = c(1:mixture_components)
+  candidate_bins = seq_len(mixture_components)
   init_bins = which(sizes[candidate_bins] > 3 * min_bin_size) # heuristic: strive to improve
   lost = length(candidate_bins) - length(init_bins)
   if (lost > 0) cat("Warning: dropped", lost, "mixture components due to too few events at initialization.\n")
@@ -259,7 +258,7 @@ tailor.learn = function(data, params = NULL,
     tailor_obj = list("mixture" = fit$mixture, "mixtures_1D" = mixtures_1D, "cat_clusters" = cat_clusters)
   }
 
-  if (verbose > 0) print(Sys.time() - start.time)
+  if (verbose > 0) print(Sys.time() - start_time)
 
   class(tailor_obj) = "tailor"
   tailor_obj
@@ -284,7 +283,7 @@ tailor.learn = function(data, params = NULL,
 #' @return Two atomic vectors of integers, one giving the mixture component, and the other
 #' the categorical cluster, for each event.
 #' @export
-tailor.predict = function(data, tailor_obj, n_batch = 64,
+tailor_predict = function(data, tailor_obj, n_batch = 64,
                           parallel = FALSE, verbose = FALSE)
 {
   if(is(data, "flowSet"))
@@ -295,7 +294,7 @@ tailor.predict = function(data, tailor_obj, n_batch = 64,
 
   if(is(data,"flowFrame")) data = flowCore::exprs(data)
 
-  start.time = Sys.time()
+  start_time = Sys.time()
   n = nrow(data)
   k = length(tailor_obj$mixture$pro)
   logpro = log(tailor_obj$mixture$pro)
@@ -316,7 +315,7 @@ tailor.predict = function(data, tailor_obj, n_batch = 64,
     registerDoParallel(clust)
 
     data_list = list()
-    for (batch in c(1:n_batch))
+    for (batch in seq_len(n_batch))
     {
       start_batch = (batch - 1) * batch_size + 1
       end_batch = batch * batch_size
@@ -352,7 +351,7 @@ tailor.predict = function(data, tailor_obj, n_batch = 64,
   {
     if (verbose) { cat("Analyzing ", n_batch, " batches sequentially: ") }
 
-    for (batch in c(1:n_batch))
+    for (batch in seq_len(n_batch))
     {
       if(verbose) {cat(batch, " ")}
       start_batch = (batch - 1) * batch_size + 1
@@ -385,7 +384,7 @@ tailor.predict = function(data, tailor_obj, n_batch = 64,
   }
 
   if(verbose) {cat("\n")}
-  if(verbose) { print(Sys.time() - start.time) }
+  if(verbose) { print(Sys.time() - start_time) }
 
   list(mixture_mapping = mapping,
        cluster_mapping = tailor_obj$cat_clusters$mixture_to_cluster[mapping])
@@ -435,7 +434,7 @@ get_1D_mixtures = function(data, params, max_mixture = 3,
   if (!is.null(seed)) set.seed(seed)
   if (sample_fraction == 1)
   {
-    sel = c(1:nrow(data))
+    sel = seq_len(nrow(data))
   } else
   {
     sample_size = ceiling(sample_fraction * nrow(data))
@@ -444,8 +443,9 @@ get_1D_mixtures = function(data, params, max_mixture = 3,
 
   if (is.null(prior_BIC))
   {
-    prior_BIC = exp(-4 + 0.732 * log(length(sel)))
+    prior_BIC = exp(-3.7 + 0.732 * log(5 * length(sel)))
   }
+  cat("prior BIC:", prior_BIC, "\n")
 
   if (parallel)
   {
@@ -466,10 +466,10 @@ get_1D_mixtures = function(data, params, max_mixture = 3,
         set.seed(seed)
 
         # Use Bayesian information criterion to choose best k
-        BIC = mclustBIC(data_param, G = 1:max_mixture, modelNames = "V", verbose = FALSE)
+        BIC = mclustBIC(data_param, G = seq_len(max_mixture), modelNames = "V", verbose = FALSE)
 
         # A tweak to favor smaller k
-        for (k in c(1:max_mixture))
+        for (k in seq_len(max_mixture))
         {
           BIC[k] = BIC[k] - prior_BIC*k*log(length(data_param), base = 2)
         }
@@ -497,10 +497,10 @@ get_1D_mixtures = function(data, params, max_mixture = 3,
       # set.seed(seed)
 
       # Use Bayesian information criterion to choose best k
-      BIC = mclustBIC(dat, G = 1:max_mixture, modelNames = "V", verbose = FALSE)
+      BIC = mclustBIC(dat, G = seq_len(max_mixture), modelNames = "V", verbose = FALSE)
 
       # A tweak to favor smaller k
-      for (k in c(1:max_mixture))
+      for (k in seq_len(max_mixture))
       {
         BIC[k] = BIC[k] - prior_BIC*k*log(length(dat), base = 2)
       }
@@ -571,6 +571,7 @@ customize_1D_mixtures = function(data, to_customize,
 #' @param data A flowSet, flowFrame or a matrix containing events along the rows, markers along columns.
 #' @param mixtures_1D 1D mixture models, as produced by get_1D_mixtures.
 #' @param params A list of markers to use; must be subset of colnames(data).
+#' @return Side-by-side plots of kdes and mixture components.
 #' @export
 inspect_1D_mixtures = function(data, mixtures_1D, params)
 {
@@ -692,7 +693,7 @@ plot_tsne_bin_centers = function(tailor_obj)
 #' @param tailor_pred A list of cluster assignments, as obtained from tailor.predict.
 #' @param defs Definitions of major phenotypes.
 #' @param seed A seed for the random generator, used in the initialization of t-SNE.
-#' @return A 2d embeddings, color-coded by cluster membershi and major phenotype.
+#' @return 2d embeddings, color-coded by cluster membershi and major phenotype.
 #' @export
 plot_tsne_global = function(data, tailor_obj, tailor_pred, defs, seed = NULL)
 {
@@ -717,7 +718,7 @@ plot_tsne_global = function(data, tailor_obj, tailor_pred, defs, seed = NULL)
     sel = sample(n_items, 1e4)
   } else
   {
-    sel = c(1:n_items)
+    sel = seq_len(n_items)
   }
   data = data[sel,params]
   perplexity = min((length(sel) - 1)/3, 30)
@@ -743,7 +744,7 @@ plot_tsne_global = function(data, tailor_obj, tailor_pred, defs, seed = NULL)
   }
 
   phenotype = character(length = length(sel))
-  phenotype[c(1:length(sel))] = "Other"
+  phenotype[seq_len(length(sel))] = "Other"
   for (pheno in rownames(defs))
   {
     relevant = names(defs)[which(defs[pheno,] != "dc")]
@@ -758,7 +759,7 @@ plot_tsne_global = function(data, tailor_obj, tailor_pred, defs, seed = NULL)
 
   # Display plots
   # mycolors = c(brewer.pal(name="Set1", n = 9), brewer.pal(name="Set3", n = 12))
-  # mycolors = mycolors[c(1:2, 10:21)]
+  # mycolors = mycolors[seq_len(2, 10:21)]
 
   g = ggplot(tsne[which(tsne$phenotype != "Other"),],
              aes(x=.data$tsne_1, y=.data$tsne_2, color = .data$phenotype)) +
@@ -805,6 +806,7 @@ plot_tsne_global = function(data, tailor_obj, tailor_pred, defs, seed = NULL)
 #' @description Plot 1D kdes of a dataset for visual inspection.
 #' @param data A flowSet, flowFrame or a matrix containing events along the rows, markers along columns.
 #' @param params A list of markers to use; must be subset of colnames(data).
+#' @return Plots of kernel density estimate for each chosen parameter.
 #' @export
 plot_kdes_global = function(data, params)
 {

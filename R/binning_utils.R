@@ -67,7 +67,7 @@ find_phenobin_mean = function(data, predictions,
   counts = vector("list", k)
 
   # Initialize lists of indices with appropriate size
-  for (i in c(1:k))
+  for (i in seq_len(k))
   {
     box = bins[i]
     idx[[box]] = integer(length = sizes[i])
@@ -93,7 +93,7 @@ find_phenobin_mean = function(data, predictions,
   # clus <- makeCluster(cores[1])
   # registerDoParallel(clus)
 
-  for (i in c(1:k))
+  for (i in seq_len(k))
   {
     if (verbose & i%%500 == 0) { print(i) }
 
@@ -145,7 +145,7 @@ find_phenobin_mean = function(data, predictions,
           # Otherwise, compute for each piece
           data_this_box = data[sel,params]
 
-          for (cl in c(1:n_repr[i]))
+          for (cl in seq_len(n_repr[i]))
           {
             ind_cl = which(km$cluster ==cl)
             split_box_sizes[start + cl -1] = length(ind_cl)
@@ -383,7 +383,7 @@ get_phenobin_summary = function(phenobin)
   t = table(phenobin)
   t_sorted = rev(order(t))
   box_idx = t
-  box_idx[names(box_idx)] = c(1:length(box_idx))
+  box_idx[names(box_idx)] = seq_len(length(box_idx))
   predictions = as.vector(box_idx[phenobin])
   t_numeric = table(predictions)
   t_numeric_sorted = rev(order(t_numeric))
@@ -405,7 +405,7 @@ get_1D_mixtures_custom = function(data, params, k = 3,
   # Keep all data, or sample a subset to speed up
   if (sample_fraction == 1)
   {
-    sel = c(1:nrow(data))
+    sel = seq_len(nrow(data))
   } else
   {
     sample_size = ceiling(sample_fraction * nrow(data))

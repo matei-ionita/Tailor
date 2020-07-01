@@ -85,7 +85,7 @@ bulk_weighted_gmm = function(data, k, params, weights = NULL,
   loglik_history = loglik
 
 
-  for (step in c(1:max_steps))
+  for (step in seq_len(max_steps))
   {
     if(max_steps == 0) {break}
 
@@ -152,7 +152,7 @@ initialize_mixture = function(data, k, params, seed, verbose = FALSE)
   mixture$mean = data[s,params,drop = FALSE]
 
   mixture$variance$sigma = array(NaN, c(d,d,k))
-  for (component in c(1:k))
+  for (component in seq_len(k))
   {
     mixture$variance$sigma[,,component] = diag(d)
   }
@@ -239,7 +239,7 @@ m_step = function(data, mixture, event_probabilities, params,
 
   if (verbose) { cat("Updating mixture parameters ") }
 
-  for (slice in c(1:k))
+  for (slice in seq_len(k))
   {
 
     if (d==1)
@@ -288,7 +288,7 @@ correct_variances = function(mixture, variance_correction, event_probabilities, 
   k = ncol(event_probabilities)
   weighted_probs = event_probabilities * weights
 
-  for (slice in c(1:k))
+  for (slice in seq_len(k))
   {
     this_correction = apply(weighted_probs[,slice] * variance_correction, c(2:3), sum)
     this_correction = this_correction / mixture$pro[slice]
@@ -299,52 +299,4 @@ correct_variances = function(mixture, variance_correction, event_probabilities, 
   mixture
 }
 
-
-
-##########################
-# Plotting utils
-##########################
-
-
-plot_mixture_assignments = function(data, params, k, assignment, title,
-                                    outlier_threshold = 100,
-                                    verbose = FALSE)
-{
-  start.time = Sys.time()
-
-  # Some auxiliary objects
-  tab_pred = tabulate(assignment)
-  global_kdes = make_kdes_global(data, params)
-
-  for (cl in c(1:k))
-  {
-    # If the cluster has too few events, they're probably outliers; discard
-    if (tab_pred[cl] < outlier_threshold)
-    {
-      cat("Skipped cluster ", cl, ": ", tab_pred[cl], " events.\n")
-      next
-    }
-
-    # Select the events from current cluster, and overlay their kde with the global kde
-    sel = which(assignment == cl)
-    l = length(sel)
-
-    if (l < 1000)
-    {
-      events_cl = data[sel,]
-    } else if (l < 5000)
-    {
-      events_cl = data[sample(sel,floor(l/2)),]
-    } else
-    {
-      events_cl = data[sample(sel,floor(l/4)),]
-    }
-
-    plot_cluster_histograms(global_kdes, events_cl, params)
-
-    dev.print(png, tight(title, "_cl", cl, ".png"), width = 600, height = 400)
-  }
-
-  if(verbose) { print(Sys.time() - start.time) }
-}
 
