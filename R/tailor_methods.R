@@ -721,22 +721,37 @@ plot_tsne_clusters <- function(tailor_obj, tailor_pred)
 #' fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
 #' load(fileName)
 #' tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
+#'
+#' # Run with do_tsne flag set to TRUE
 #' tailor_obj <- tailor_learn(data = fs_old,
 #'                           params = tailor_params,
-#'                           mixture_components = 50)
+#'                           mixture_components = 50,
+#'                           do_tsne = TRUE)
 #' plot_tsne_bin_centers(tailor_obj)
 #' @export
 plot_tsne_bin_centers <- function(tailor_obj)
 {
-  binc <- tailor_obj$tsne_centers
-  binc$phenotype <- tailor_obj$cat_clusters$mixture_to_cluster[binc$cluster]
-  binc$phenotype <- tailor_obj$cat_clusters$labels[binc$phenotype]
+  out <- tryCatch(
+    {
+      binc <- tailor_obj$tsne_centers
+      binc$phenotype <- tailor_obj$cat_clusters$mixture_to_cluster[binc$cluster]
+      binc$phenotype <- tailor_obj$cat_clusters$labels[binc$phenotype]
 
-  g <- ggplot(binc, aes(x=.data$tsne_1, y=.data$tsne_2)) +
-    geom_point(aes(color = .data$phenotype)) +
-    scale_color_brewer(palette = "Paired")
+      g <- ggplot(binc, aes(x=.data$tsne_1, y=.data$tsne_2)) +
+        geom_point(aes(color = .data$phenotype)) +
+        scale_color_brewer(palette = "Paired")
 
-  g
+      g
+    },
+    error = function(cond) {
+      message("Make sure to run tailor_learn with do_tsne flag set to TRUE.")
+      message("Original error message:")
+      message(cond)
+      return(NA)
+    }
+  )
+
+  return(out)
 }
 
 

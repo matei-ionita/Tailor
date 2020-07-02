@@ -20,8 +20,11 @@ Plot a t-SNE reduction to 2d of the cluster centroids.
 fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
 load(fileName)
 tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
+
+# Run with do_tsne flag set to TRUE
 tailor_obj <- tailor_learn(data = fs_old,
                           params = tailor_params,
-                          mixture_components = 50)
+                          mixture_components = 50,
+                          do_tsne = TRUE)
 plot_tsne_bin_centers(tailor_obj)
 }

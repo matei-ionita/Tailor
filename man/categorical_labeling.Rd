@@ -28,6 +28,6 @@ tailor_obj <- tailor_learn(data = fs_old,
                           mixture_components = 50)
 
 defs <- read.csv("~/git/R/packages/Tailor/inst/extdata/pheno_definitions.csv",
-                 row.names = 1, stringsAsFactors=FALSE)
+                 row.names = 1, stringsAsFactors = FALSE)
 tailor_obj <- categorical_labeling(tailor_obj, defs)
 }

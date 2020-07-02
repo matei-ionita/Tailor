@@ -304,7 +304,7 @@ mapping_from_mixtures <- function(data, mixtures, to_merge, params,
   }
   else
   {
-    mapping <- matrix(nrow <- n, ncol = 0)
+    mapping <- matrix(nrow = n, ncol = 0)
 
     if (verbose) { cat("Mapping", n, "events to", d, "univariate mixtures sequentially: ") }
 
