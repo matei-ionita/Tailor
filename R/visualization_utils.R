@@ -4,20 +4,20 @@
 #################################################
 
 
-make_kdes_global = function(data, parameters)
+make_kdes_global <- function(data, parameters)
 {
   # Make kde of global distribution for each parameter
-  kdes = list()
+  kdes <- list()
   for (param in parameters)
   {
-    kdes[[param]] = bkde(data[,param])
+    kdes[[param]] <- bkde(data[,param])
   }
 
   kdes
 }
 
 
-plot_kde_vs_mixture = function(data, global_kdes, mixtures, name,
+plot_kde_vs_mixture <- function(data, global_kdes, mixtures, name,
                               xmin = -2, xmax = 5)
 {
   # Set up the stage for 3 plots side by side
@@ -37,17 +37,17 @@ plot_kde_vs_mixture = function(data, global_kdes, mixtures, name,
 }
 
 
-plot_cluster_histograms = function(global_kdes, cluster = NULL,
+plot_cluster_histograms <- function(global_kdes, cluster = NULL,
                                    cluster2 = NULL, parameters,
                                    weights = NULL,
                                    overlay_hist = TRUE)
 {
   # Overlay global kde with cluster kde, for each parameter
 
-  i = 1
+  i <- 1
   while (i * (i+1) < length(parameters))
   {
-    i = i+1
+    i <- i+1
   }
 
   par(mfrow = c(i,i+1), mar = c(1,0,3,0) + 0.1)
@@ -57,11 +57,11 @@ plot_cluster_histograms = function(global_kdes, cluster = NULL,
     # Plot kernel density estimates for each of the parameters
     if (is.null(cluster2))
     {
-      kde = global_kdes[[parameter]]
+      kde <- global_kdes[[parameter]]
     }
     else
     {
-      kde = bkde(cluster2[,parameter])
+      kde <- bkde(cluster2[,parameter])
     }
     plot(kde, type = "l", main = parameter)
 
@@ -69,14 +69,14 @@ plot_cluster_histograms = function(global_kdes, cluster = NULL,
     {
       if (is.null(weights))
       {
-        kde1 = bkde(cluster[,parameter])
+        kde1 <- bkde(cluster[,parameter])
       }
       else
       {
-        kde1 = density(cluster[,parameter], weights = weights)
+        kde1 <- density(cluster[,parameter], weights = weights)
       }
-      scal = 0.8 * max(kde$y) / max(kde1$y)
-      kde1$y = kde1$y * scal
+      scal <- 0.8 * max(kde$y) / max(kde1$y)
+      kde1$y <- kde1$y * scal
       lines(kde1, col = "red")
     }
 
@@ -87,34 +87,34 @@ plot_cluster_histograms = function(global_kdes, cluster = NULL,
 
 
 
-get_tsne_centers = function(data, probs)
+get_tsne_centers <- function(data, probs)
 {
   # Get t-SNE reduction to 2D of bin centers,
   # and map each bin to its most likely cluster
 
-  n_items = nrow(data)
-  perplexity = min((n_items - 1)/3, 30)
+  n_items <- nrow(data)
+  perplexity <- min((n_items - 1)/3, 30)
 
-  res = Rtsne(data, perplexity = perplexity)$Y
-  cluster = apply(probs, 1, which.max)
-  res = cbind(res, cluster)
+  res <- Rtsne(data, perplexity = perplexity)$Y
+  cluster <- apply(probs, 1, which.max)
+  res <- cbind(res, cluster)
 
-  colnames(res) = c("tsne_1", "tsne_2", "cluster")
+  colnames(res) <- c("tsne_1", "tsne_2", "cluster")
 
   data.frame(res)
 }
 
 
-get_tsne_clusters = function(tailor_obj)
+get_tsne_clusters <- function(tailor_obj)
 {
   # Get t-SNE reduction to 2D of cluster centroids
-  centers = tailor_obj$cat_clusters$centers
+  centers <- tailor_obj$cat_clusters$centers
 
-  n_items = nrow(centers)
-  perplexity = min((n_items - 1)/3, 30)
+  n_items <- nrow(centers)
+  perplexity <- min((n_items - 1)/3, 30)
 
-  res = Rtsne(dist(centers), perplexity = perplexity)$Y
-  colnames(res) = c("tsne_1", "tsne_2")
+  res <- Rtsne(dist(centers), perplexity = perplexity)$Y
+  colnames(res) <- c("tsne_1", "tsne_2")
 
   data.frame(res)
 }

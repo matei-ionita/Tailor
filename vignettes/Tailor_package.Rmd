@@ -38,11 +38,11 @@ Some preparations: load the package, some data, choose the parameters to be used
 
 ```{r preparations, fig.align = "center", fig.width=8, fig.height=5}
 library(Tailor)
-fileName = system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
 load(fileName)   # fs_old
 
-tailor_params = flowCore::colnames(fs_old)[c(7:9, 11:22)]
-data = fs_old[[4]]
+tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
+data <- fs_old[[4]]
 set.seed(525)
 
 plot_kdes_global(data, tailor_params)
@@ -52,9 +52,9 @@ plot_kdes_global(data, tailor_params)
 The simplest way to learn a Tailor model is to feed the data directly to the `tailor_learn()` method. (See the Advanced workflow section below for more complex options.)
 
 ```{r tailor_vanilla}
-n_components = 50
+n_components <- 50
 
-tailor_obj = tailor_learn(data = data,
+tailor_obj <- tailor_learn(data = data,
                           params = tailor_params,
                           mixture_components = n_components)
 ```
@@ -81,17 +81,17 @@ tailor_obj$cat_clusters$mixture_to_cluster
 If available, load a file containing definitions of major phenotypes (e.g. Naive CD4 T cell, Macrophage). We can use this to enhance the Tailor object, labeling each categorical cluster by a major phenotype.
 
 ```{r categorical_labeling}
-defsfile = system.file("extdata", "pheno_definitions.csv", package = "Tailor")
-defs = read.csv(defsfile, row.names = 1, stringsAsFactors=FALSE)
+defsfile <- system.file("extdata", "pheno_definitions.csv", package = "Tailor")
+defs <- read.csv(defsfile, row.names = 1, stringsAsFactors=FALSE)
 defs
 
-tailor_obj = categorical_labeling(tailor_obj, defs)
+tailor_obj <- categorical_labeling(tailor_obj, defs)
 ```
 
 Given the Tailor object computed with `tailor_learn()`, we can use `tailor_predict()` to assign cluster membership to data. In this example, we use the same data that was used in the learning step. But `tailor_predict()` can be used just as well with new data.
 
 ```{r tailor_predict}
-tailor_pred = tailor_predict(data = data,
+tailor_pred <- tailor_predict(data = data,
                              tailor_obj = tailor_obj)
 ```
 
@@ -112,7 +112,7 @@ You will get better results if you take control over the initial step (or "binni
 In this step, events are placed into phenotypically similar bins, and one or more representatives from each bin is chosen. You should think of binning as a way to perform density-based subsampling of the data. To define the bins, Tailor models the distribution of each individual parameter as a Gaussian mixture, with 1-3 components. (This is distinct from the main modeling step, where the 15-dimensional distribution of all parameters is modeled as a Gaussian mixture with 50 components.) This 1D modeling happens behind the scenes in a run of `tailor_learn()` with default settings. Instead, you can do it explicitly using `get_1D_mixtures()`, and visualize the result with `inspect_1D_mixtures()`.
 
 ```{r 1D_mixtures, fig.width=8, fig.height=4}
-mixtures_1D = get_1D_mixtures(data, tailor_params,
+mixtures_1D <- get_1D_mixtures(data, tailor_params,
                               max_mixture = 3)
 
 inspect_1D_mixtures(data, mixtures_1D, tailor_params)
@@ -121,9 +121,9 @@ inspect_1D_mixtures(data, mixtures_1D, tailor_params)
 Most of the 1D models look reasonable. But for CCR7, it would be better to use two mixture components instead of one. Similarly, for CD27 it would be better to use three mixture components instead of two.
 
 ```{r customize_1D_mixtures, fig.width=8, fig.height=4}
-# to_customize = list("CCR7PECY7" = 2, "CD27AF700" = 3)
-to_customize = list("CD127BV421" = 2)
-mixtures_1D = customize_1D_mixtures(data, to_customize, mixtures_1D, verbose = TRUE)
+# to_customize <- list("CCR7PECY7" = 2, "CD27AF700" = 3)
+to_customize <- list("CD127BV421" = 2)
+mixtures_1D <- customize_1D_mixtures(data, to_customize, mixtures_1D, verbose = TRUE)
 inspect_1D_mixtures(data, mixtures_1D, names(to_customize))
 ```
 
@@ -131,15 +131,15 @@ That looks better.
 We can pass the 1D mixtures as an argument to `tailor_learn()`, and they will be used in the binning process. We can also specify some 1D mixture components that should be merged in the same bin, if we have grounds to believe that they represent the same biological population.
 
 ```{r learn_advanced}
-# mixtures_1D$to_merge = list("CD11BAPCCY7"= c(1,2), "CD45RAQ655" = c(1,2), "CD27AF700" = c(2,3))
+# mixtures_1D$to_merge <- list("CD11BAPCCY7"= c(1,2), "CD45RAQ655" = c(1,2), "CD27AF700" = c(2,3))
 
-tailor_obj = tailor_learn(data = data,
+tailor_obj <- tailor_learn(data = data,
                           params = tailor_params,
                           mixtures_1D = mixtures_1D,
                           mixture_components = n_components)
 
-tailor_obj = categorical_labeling(tailor_obj, defs)
-tailor_pred = tailor_predict(data = data,
+tailor_obj <- categorical_labeling(tailor_obj, defs)
+tailor_pred <- tailor_predict(data = data,
                              tailor_obj = tailor_obj)
 ```
 

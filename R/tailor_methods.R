@@ -77,7 +77,7 @@ NULL
 #'                           mixture_components = 50,
 #'                           mixtures_1D = mixtures_1D)
 #' @export
-tailor_learn = function(data, params = NULL,
+tailor_learn <- function(data, params = NULL,
                         mixture_components = 200,
                         min_bin_size = NULL, max_bin_size = NULL,
                         mixtures_1D = NULL,
@@ -86,26 +86,26 @@ tailor_learn = function(data, params = NULL,
                         parallel = FALSE,
                         verbose = 0.5)
 {
-  start_time = Sys.time()
+  start_time <- Sys.time()
 
   if(is(data, "flowSet"))
   {
-    data = suppressWarnings(as(data, "flowFrame"))
-    flowCore::exprs(data) = flowCore::exprs(data)[,which(flowCore::colnames(data) != "Original")]
+    data <- suppressWarnings(as(data, "flowFrame"))
+    flowCore::exprs(data) <- flowCore::exprs(data)[,which(flowCore::colnames(data) != "Original")]
   }
 
-  if(is(data, "flowFrame")) data = flowCore::exprs(data)
+  if(is(data, "flowFrame")) data <- flowCore::exprs(data)
 
-  if (is.null(params)) params = colnames(data)
-  d = length(params)
+  if (is.null(params)) params <- colnames(data)
+  d <- length(params)
 
   if (is.null(min_bin_size))
   {
-    min_bin_size = max(5,ceiling(nrow(data) / 1e5))
+    min_bin_size <- max(5,ceiling(nrow(data) / 1e5))
   }
   if(is.null(max_bin_size))
   {
-    max_bin_size = max(50,ceiling(nrow(data) / 1e3))
+    max_bin_size <- max(50,ceiling(nrow(data) / 1e3))
   }
 
   # preliminary binning
@@ -115,45 +115,45 @@ tailor_learn = function(data, params = NULL,
     # Learn 1D mixture model for each variable
     if (verbose > 0) {print("Getting 1D mixtures...")}
 
-    sample_fraction = 0.5
-    if (nrow(data) > 5e5) sample_fraction = 0.2
-    if (nrow(data) > 1e7) sample_fraction = 0.1
+    sample_fraction <- 0.5
+    if (nrow(data) > 5e5) sample_fraction <- 0.2
+    if (nrow(data) > 1e7) sample_fraction <- 0.1
 
-    mixtures_1D = get_1D_mixtures(data[,params], params, max_mixture = 3,
+    mixtures_1D <- get_1D_mixtures(data[,params], params, max_mixture = 3,
                                     sample_fraction = sample_fraction,
                                     parallel = parallel,
                                     verbose = (verbose >= 1))
 
     # Merge modes whose mean is small enough.
     # These are likely compensation artifacts.
-    mixtures_1D$to_merge = find_to_merge(mixtures_1D, params,
+    mixtures_1D$to_merge <- find_to_merge(mixtures_1D, params,
                              negative_threshold = 0.5,
                              verbose = (verbose == 1))
   } else
   {
     # If given path to pre-computed mixtures, load them
-    params = names(mixtures_1D$mixtures)
+    params <- names(mixtures_1D$mixtures)
   }
 
 
   # Up-sample: assign each data point to most likely component of the model
   if (verbose > 0) { print("Assigning data to 1D mixtures...")}
 
-  mapping = mapping_from_mixtures(data[,params], mixtures_1D$mixtures, mixtures_1D$to_merge,
+  mapping <- mapping_from_mixtures(data[,params], mixtures_1D$mixtures, mixtures_1D$to_merge,
                                   params,
                                   parallel = parallel, verbose = (verbose >= 1))
-  phenobin = phenobin_label(mapping)
+  phenobin <- phenobin_label(mapping)
 
 
   if (verbose > 0) { print("Preparing initialization of bulk mixture model...")}
 
   # Parse phenobins
-  phenobin_summary = get_phenobin_summary(phenobin)
+  phenobin_summary <- get_phenobin_summary(phenobin)
 
-  large_bins = which(phenobin_summary$bins_sorted >= min_bin_size)
-  bins = as.integer(names(phenobin_summary$bins_sorted)[large_bins])
-  sizes = as.vector(phenobin_summary$bins_sorted)[large_bins]
-  populous = which(phenobin_summary$predictions %in% bins)
+  large_bins <- which(phenobin_summary$bins_sorted >= min_bin_size)
+  bins <- as.integer(names(phenobin_summary$bins_sorted)[large_bins])
+  sizes <- as.vector(phenobin_summary$bins_sorted)[large_bins]
+  populous <- which(phenobin_summary$predictions %in% bins)
 
   if(verbose > 1)
   {
@@ -163,7 +163,7 @@ tailor_learn = function(data, params = NULL,
 
 
 
-  phenobin_parameters = find_phenobin_mean(data = data,
+  phenobin_parameters <- find_phenobin_mean(data = data,
                                            predictions = phenobin_summary$predictions,
                                            bins = bins, sizes = sizes,
                                            params = params,
@@ -173,10 +173,10 @@ tailor_learn = function(data, params = NULL,
                                            parallel = parallel,
                                            verbose = (verbose >= 1))
 
-  nonzero = which(phenobin_parameters$sizes > 0)
-  repr_sizes = phenobin_parameters$sizes[nonzero]
-  repr_means = phenobin_parameters$means[nonzero,]
-  repr_variances = phenobin_parameters$variances[nonzero,,]
+  nonzero <- which(phenobin_parameters$sizes > 0)
+  repr_sizes <- phenobin_parameters$sizes[nonzero]
+  repr_means <- phenobin_parameters$means[nonzero,]
+  repr_variances <- phenobin_parameters$variances[nonzero,,]
 
 
   if (verbose > 1)
@@ -188,13 +188,13 @@ tailor_learn = function(data, params = NULL,
 
 
   # Prepare initialization of bulk mixture model
-  candidate_bins = seq_len(mixture_components)
-  init_bins = which(sizes[candidate_bins] > 3 * min_bin_size) # heuristic: strive to improve
-  lost = length(candidate_bins) - length(init_bins)
+  candidate_bins <- seq_len(mixture_components)
+  init_bins <- which(sizes[candidate_bins] > 3 * min_bin_size) # heuristic: strive to improve
+  lost <- length(candidate_bins) - length(init_bins)
   if (lost > 0) cat("Warning: dropped", lost, "mixture components due to too few events at initialization.\n")
 
-  populous = which(phenobin_summary$predictions %in% bins[init_bins])
-  phenobin_parameters = find_phenobin_mean(data = data,
+  populous <- which(phenobin_summary$predictions %in% bins[init_bins])
+  phenobin_parameters <- find_phenobin_mean(data = data,
                                            predictions = phenobin_summary$predictions,
                                            bins = bins[init_bins], sizes = sizes[init_bins],
                                            params = params,
@@ -205,15 +205,15 @@ tailor_learn = function(data, params = NULL,
                                            verbose = (verbose >= 1))
 
 
-  mixture = list()
-  mixture$pro = sizes[init_bins]
-  mixture$mean = phenobin_parameters$means
-  mixture$variance$sigma = array(NaN, c(d,d,mixture_components))
+  mixture <- list()
+  mixture$pro <- sizes[init_bins]
+  mixture$mean <- phenobin_parameters$means
+  mixture$variance$sigma <- array(NaN, c(d,d,mixture_components))
 
   for (component in init_bins)
   {
-    sigma = phenobin_parameters$variances[component,,]
-    mixture$variance$sigma[,,component] = sigma
+    sigma <- phenobin_parameters$variances[component,,]
+    mixture$variance$sigma[,,component] <- sigma
   }
 
 
@@ -222,7 +222,7 @@ tailor_learn = function(data, params = NULL,
 
   if (do_variance_correction)
   {
-    fit = bulk_weighted_gmm(data = repr_means,
+    fit <- bulk_weighted_gmm(data = repr_means,
                             k = mixture_components,
                             params = params,
                             weights = repr_sizes,
@@ -233,7 +233,7 @@ tailor_learn = function(data, params = NULL,
   }
   else
   {
-    fit = bulk_weighted_gmm(data = repr_means,
+    fit <- bulk_weighted_gmm(data = repr_means,
                             k = mixture_components,
                             params = params,
                             weights = repr_sizes,
@@ -246,10 +246,10 @@ tailor_learn = function(data, params = NULL,
   if(verbose > 0) print("Categorical merging...")
 
   # Use the 1D mixture models to decide on +/- cutoffs
-  cutoffs = get_1D_cutoffs(mixtures_1D$mixtures, mixtures_1D$to_merge, params)
+  cutoffs <- get_1D_cutoffs(mixtures_1D$mixtures, mixtures_1D$to_merge, params)
 
   # Categorical merging
-  cat_clusters = categorical_merging(fit$mixture$pro,
+  cat_clusters <- categorical_merging(fit$mixture$pro,
                              fit$mixture$mean,
                              cutoffs,
                              params)
@@ -257,23 +257,23 @@ tailor_learn = function(data, params = NULL,
   if (do_tsne)
   {
     if (verbose > 0) { print("Reducing phenobin centers to 2D...") }
-    tsne_centers = get_tsne_centers(data = repr_means, probs = fit$event_probabilities)
+    tsne_centers <- get_tsne_centers(data = repr_means, probs = fit$event_probabilities)
   }
 
 
   if (do_tsne)
   {
-    tailor_obj = list("mixture" = fit$mixture, "mixtures_1D" = mixtures_1D, "cat_clusters" = cat_clusters,
+    tailor_obj <- list("mixture" = fit$mixture, "mixtures_1D" = mixtures_1D, "cat_clusters" = cat_clusters,
          "tsne_centers" = tsne_centers)
   }
   else
   {
-    tailor_obj = list("mixture" = fit$mixture, "mixtures_1D" = mixtures_1D, "cat_clusters" = cat_clusters)
+    tailor_obj <- list("mixture" = fit$mixture, "mixtures_1D" = mixtures_1D, "cat_clusters" = cat_clusters)
   }
 
   if (verbose > 0) print(Sys.time() - start_time)
 
-  class(tailor_obj) = "tailor"
+  class(tailor_obj) <- "tailor"
   tailor_obj
 }
 
@@ -304,62 +304,62 @@ tailor_learn = function(data, params = NULL,
 #'                           mixture_components = 50)
 #' tailor_pred <- tailor_predict(fs_old, tailor_obj)
 #' @export
-tailor_predict = function(data, tailor_obj, n_batch = 64,
+tailor_predict <- function(data, tailor_obj, n_batch = 64,
                           parallel = FALSE, verbose = FALSE)
 {
   if(is(data, "flowSet"))
   {
-    data = suppressWarnings(as(data, "flowFrame"))
-    flowCore::exprs(data) = flowCore::exprs(data)[,which(flowCore::colnames(data) != "Original")]
+    data <- suppressWarnings(as(data, "flowFrame"))
+    flowCore::exprs(data) <- flowCore::exprs(data)[,which(flowCore::colnames(data) != "Original")]
   }
 
-  if(is(data,"flowFrame")) data = flowCore::exprs(data)
+  if(is(data,"flowFrame")) data <- flowCore::exprs(data)
 
-  start_time = Sys.time()
-  n = nrow(data)
-  k = length(tailor_obj$mixture$pro)
-  logpro = log(tailor_obj$mixture$pro)
-  params = colnames(tailor_obj$mixture$mean)
-  data = data[,params]
+  start_time <- Sys.time()
+  n <- nrow(data)
+  k <- length(tailor_obj$mixture$pro)
+  logpro <- log(tailor_obj$mixture$pro)
+  params <- colnames(tailor_obj$mixture$mean)
+  data <- data[,params]
 
-  mapping = integer(length = n)
+  mapping <- integer(length = n)
 
   # n*k may be an unreasonable amount of memory to use, so break into batches
-  batch_size = ceiling(n/n_batch)
+  batch_size <- ceiling(n/n_batch)
 
   if (parallel)
   {
     if (verbose) { cat("Analyzing ", n_batch, " batches in parallel.") }
     #setup parallel backend to use many processors
-    cores=detectCores()
+    cores <- detectCores()
     clust <- makeCluster(cores[1])
     registerDoParallel(clust)
 
-    data_list = list()
+    data_list <- list()
     for (batch in seq_len(n_batch))
     {
-      start_batch = (batch - 1) * batch_size + 1
-      end_batch = batch * batch_size
-      if (batch == n_batch) { end_batch = n }
+      start_batch <- (batch - 1) * batch_size + 1
+      end_batch <- batch * batch_size
+      if (batch == n_batch) { end_batch <- n }
 
-      data_list[[batch]] = data[c(start_batch:end_batch),params]
+      data_list[[batch]] <- data[c(start_batch:end_batch),params]
     }
 
     rm(data)
 
-    mapping = foreach(batch_data=iter(data_list), .combine = c, .packages = c("mvtnorm")) %dopar%
+    mapping <- foreach(batch_data = iter(data_list), .combine = c, .packages = c("mvtnorm")) %dopar%
       {
-        posteriors = matrix(0, nrow = nrow(batch_data), ncol = k)
+        posteriors <- matrix(0, nrow = nrow(batch_data), ncol = k)
 
         for (cl in seq(k))
         {
-          mean = tailor_obj$mixture$mean[cl,]
-          sigma = tailor_obj$mixture$variance$sigma[,,cl]
-          posteriors[,cl] = logpro[cl] + dmvnorm(batch_data, mean, sigma, log = TRUE)
+          mean <- tailor_obj$mixture$mean[cl,]
+          sigma <- tailor_obj$mixture$variance$sigma[,,cl]
+          posteriors[,cl] <- logpro[cl] + dmvnorm(batch_data, mean, sigma, log = TRUE)
         }
 
         # Assign each datapoint to the cluster of maximum probability
-        result = apply(posteriors, 1, which.max)
+        result <- apply(posteriors, 1, which.max)
         rm(posteriors)
         gc()
 
@@ -375,30 +375,30 @@ tailor_predict = function(data, tailor_obj, n_batch = 64,
     for (batch in seq_len(n_batch))
     {
       if(verbose) {cat(batch, " ")}
-      start_batch = (batch - 1) * batch_size + 1
-      end_batch = batch * batch_size
+      start_batch <- (batch - 1) * batch_size + 1
+      end_batch <- batch * batch_size
       if (batch == n_batch) { end_batch = n }
 
 
-      batch_data = data[c(start_batch:end_batch),params]
+      batch_data <- data[c(start_batch:end_batch),params]
 
       # For each cluster, compute the probability that data in current batch
       # are drawn from it
-      posteriors = matrix(0, nrow = end_batch - start_batch + 1, ncol = k)
+      posteriors <- matrix(0, nrow = end_batch - start_batch + 1, ncol = k)
 
 
       for (cl in seq(k))
       {
-        weight = tailor_obj$mixture$pro[cl]
-        mean = tailor_obj$mixture$mean[cl,]
-        sigma = tailor_obj$mixture$variance$sigma[,,cl]
+        weight <- tailor_obj$mixture$pro[cl]
+        mean <- tailor_obj$mixture$mean[cl,]
+        sigma <- tailor_obj$mixture$variance$sigma[,,cl]
 
-        posteriors[,cl] = weight * dmvnorm(batch_data, mean, sigma)
+        posteriors[,cl] <- weight * dmvnorm(batch_data, mean, sigma)
       }
 
 
       # Assign each datapoint to the cluster of maximum probability
-      mapping[c(start_batch:end_batch)] = apply(posteriors, 1, which.max)
+      mapping[c(start_batch:end_batch)] <- apply(posteriors, 1, which.max)
 
       gc()
     }
@@ -436,74 +436,74 @@ tailor_predict = function(data, tailor_obj, n_batch = 64,
 #' tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
 #' mixtures_1D <- get_1D_mixtures(fs_old, tailor_params)
 #' @export
-get_1D_mixtures = function(data, params, max_mixture = 3,
+get_1D_mixtures <- function(data, params, max_mixture = 3,
                            prior_BIC = NULL, sample_fraction = 0.2,
                            parallel = FALSE,
                            verbose = FALSE)
 {
   if(is(data, "flowSet"))
   {
-    data = suppressWarnings(as(data, "flowFrame"))
-    flowCore::exprs(data) = flowCore::exprs(data)[,which(flowCore::colnames(data) != "Original")]
+    data <- suppressWarnings(as(data, "flowFrame"))
+    flowCore::exprs(data) <- flowCore::exprs(data)[,which(flowCore::colnames(data) != "Original")]
   }
 
-  if(is(data,"flowFrame")) data = flowCore::exprs(data)
+  if(is(data,"flowFrame")) data <- flowCore::exprs(data)
 
-  start.time = Sys.time()
+  start.time <- Sys.time()
 
-  data = data[,params]
+  data <- data[,params]
 
   # Keep all data, or sample a subset to speed up
   if (sample_fraction == 1)
   {
-    sel = seq_len(nrow(data))
+    sel <- seq_len(nrow(data))
   } else
   {
-    sample_size = ceiling(sample_fraction * nrow(data))
-    sel = sample(nrow(data), sample_size)
+    sample_size <- ceiling(sample_fraction * nrow(data))
+    sel <- sample(nrow(data), sample_size)
   }
 
   if (is.null(prior_BIC))
   {
-    prior_BIC = exp(-3.7 + 0.732 * log(5 * length(sel)))
+    prior_BIC <- exp(-3.7 + 0.732 * log(5 * length(sel)))
   }
 
   if (parallel)
   {
     #setup parallel backend to use many processors
-    cores=detectCores()
+    cores <- detectCores()
     cl <- makeCluster(cores[1])
     registerDoParallel(cl)
 
 
     if (verbose) cat("Learning", length(params), "1D mixtures in parallel...")
 
-    data_param = NULL # unnecessary definition, but R CMD check complains without it
+    data_param <- NULL # unnecessary definition, but R CMD check complains without it
 
-    fit_list = foreach (data_param = iter(data[sel,], by = 'col'), .packages = c("mclust")) %dopar%
+    fit_list <- foreach (data_param = iter(data[sel,], by = 'col'), .packages = c("mclust")) %dopar%
       {
-        param = colnames(data_param)[1]
+        param <- colnames(data_param)[1]
 
         # Use Bayesian information criterion to choose best k
-        BIC = mclustBIC(data_param, G = seq_len(max_mixture), modelNames = "V", verbose = FALSE)
+        BIC <- mclustBIC(data_param, G = seq_len(max_mixture), modelNames = "V", verbose = FALSE)
 
         # A tweak to favor smaller k
         for (k in seq_len(max_mixture))
         {
-          BIC[k] = BIC[k] - prior_BIC*k*log(length(data_param), base = 2)
+          BIC[k] <- BIC[k] - prior_BIC*k*log(length(data_param), base = 2)
         }
 
         # Fit the model with the chosen k
-        fit = Mclust(data_param, x=BIC, verbose = FALSE)
+        fit <- Mclust(data_param, x=BIC, verbose = FALSE)
         fit$parameters
       }
-    names(fit_list) = params
+    names(fit_list) <- params
 
     #stop cluster
     stopCluster(cl)
   } else
   {
-    fit_list = list()
+    fit_list <- list()
 
     if(verbose) cat("Learning", length(params), "1D mixtures sequentially: ")
 
@@ -511,27 +511,27 @@ get_1D_mixtures = function(data, params, max_mixture = 3,
     {
       if (verbose) {cat(param, " ")}
 
-      dat = data[sel,param]
+      dat <- data[sel,param]
 
 
       # Use Bayesian information criterion to choose best k
-      BIC = mclustBIC(dat, G = seq_len(max_mixture), modelNames = "V", verbose = FALSE)
+      BIC <- mclustBIC(dat, G = seq_len(max_mixture), modelNames = "V", verbose = FALSE)
 
       # A tweak to favor smaller k
       for (k in seq_len(max_mixture))
       {
-        BIC[k] = BIC[k] - prior_BIC*k*log(length(dat), base = 2)
+        BIC[k] <- BIC[k] - prior_BIC*k*log(length(dat), base = 2)
       }
 
       # Fit the model with the chosen k
-      fit = Mclust(dat, x=BIC, verbose = FALSE)
-      fit_list[[param]] = fit$parameters
+      fit <- Mclust(dat, x=BIC, verbose = FALSE)
+      fit_list[[param]] <- fit$parameters
     }
   }
 
   gc()
 
-  end.time = Sys.time()
+  end.time <- Sys.time()
   if(verbose) {cat("\n")}
   if(verbose) {print(end.time - start.time)}
 
@@ -559,22 +559,22 @@ get_1D_mixtures = function(data, params, max_mixture = 3,
 #' to_customize <- list("CD127BV421" = 2)
 #' mixtures_1D <- customize_1D_mixtures(fs_old, to_customize, mixtures_1D)
 #' @export
-customize_1D_mixtures = function(data, to_customize,
+customize_1D_mixtures <- function(data, to_customize,
                                  mixtures_1D,
                                  sample_fraction = 0.2,
                                  verbose = FALSE)
 {
   if(is(data, "flowSet"))
   {
-    data = suppressWarnings(as(data, "flowFrame"))
-    flowCore::exprs(data) = flowCore::exprs(data)[,which(flowCore::colnames(data) != "Original")]
+    data <- suppressWarnings(as(data, "flowFrame"))
+    flowCore::exprs(data) <- flowCore::exprs(data)[,which(flowCore::colnames(data) != "Original")]
   }
 
-  if(is(data,"flowFrame")) data = flowCore::exprs(data)
+  if(is(data,"flowFrame")) data <- flowCore::exprs(data)
 
   for (param in names(to_customize))
   {
-    mixtures_1D$mixtures[[param]] = get_1D_mixtures_custom(data, param,
+    mixtures_1D$mixtures[[param]] <- get_1D_mixtures_custom(data, param,
                                                            k=to_customize[[param]],
                                                            sample_fraction = sample_fraction,
                                                            verbose = verbose)[[param]]
@@ -601,17 +601,17 @@ customize_1D_mixtures = function(data, to_customize,
 #'
 #' inspect_1D_mixtures(fs_old, mixtures_1D, tailor_params)
 #' @export
-inspect_1D_mixtures = function(data, mixtures_1D, params)
+inspect_1D_mixtures <- function(data, mixtures_1D, params)
 {
   if(is(data, "flowSet"))
   {
-    data = suppressWarnings(as(data, "flowFrame"))
-    flowCore::exprs(data) = flowCore::exprs(data)[,which(flowCore::colnames(data) != "Original")]
+    data <- suppressWarnings(as(data, "flowFrame"))
+    flowCore::exprs(data) <- flowCore::exprs(data)[,which(flowCore::colnames(data) != "Original")]
   }
 
-  if(is(data,"flowFrame")) data = flowCore::exprs(data)
+  if(is(data,"flowFrame")) data <- flowCore::exprs(data)
 
-  global_kdes = make_kdes_global(data, params)
+  global_kdes <- make_kdes_global(data, params)
 
   for (param in params)
   {
@@ -636,41 +636,41 @@ inspect_1D_mixtures = function(data, mixtures_1D, params)
 #'                           mixture_components = 50)
 #'
 #' defs <- read.csv("~/git/R/packages/Tailor/inst/extdata/pheno_definitions.csv",
-#'                  row.names = 1, stringsAsFactors=FALSE)
+#'                  row.names = 1, stringsAsFactors = FALSE)
 #' tailor_obj <- categorical_labeling(tailor_obj, defs)
 #' @export
-categorical_labeling = function(tailor_obj, defs)
+categorical_labeling <- function(tailor_obj, defs)
 {
-  n = length(tailor_obj$cat_clusters$phenotypes)
-  params = colnames(tailor_obj$mixture$mean)
-  tailor_obj$cat_clusters[["labels"]] = vector(mode = "character", length = n)
-  labs = rownames(defs)
-  nam = names(defs)
-  ind = vector(mode = "integer", length = length(nam))
+  n <- length(tailor_obj$cat_clusters$phenotypes)
+  params <- colnames(tailor_obj$mixture$mean)
+  tailor_obj$cat_clusters[["labels"]] <- vector(mode = "character", length = n)
+  labs <- rownames(defs)
+  nam <- names(defs)
+  ind <- vector(mode = "integer", length = length(nam))
 
   for (i in seq(length(nam)))
   {
-    ind[i] = which(params == nam[i])
+    ind[i] <- which(params == nam[i])
   }
 
   for (i in seq(n))
   {
-    tailor_obj$cat_clusters$labels[i] = "UNK"
+    tailor_obj$cat_clusters$labels[i] <- "UNK"
 
     for (j in seq(nrow(defs)))
     {
-      match = TRUE
+      match <- TRUE
       for (k in seq(ncol(defs)))
       {
         if (defs[j,k] == "hi" & substr(tailor_obj$cat_clusters$phenotypes[i],ind[k],ind[k]) == "-" |
             defs[j,k] == "lo" & substr(tailor_obj$cat_clusters$phenotypes[i],ind[k],ind[k]) == "+")
         {
-          match = FALSE
+          match <- FALSE
         }
       }
       if (match)
       {
-        tailor_obj$cat_clusters$labels[i] = labs[j]
+        tailor_obj$cat_clusters$labels[i] <- labs[j]
         break
       }
     }
@@ -695,14 +695,14 @@ categorical_labeling = function(tailor_obj, defs)
 #'
 #' plot_tsne_clusters(tailor_obj, tailor_pred)
 #' @export
-plot_tsne_clusters = function(tailor_obj, tailor_pred)
+plot_tsne_clusters <- function(tailor_obj, tailor_pred)
 {
-  res = get_tsne_clusters(tailor_obj)
-  res$phenotype = as.factor(tailor_obj$cat_clusters$labels)
-  res$logsize = log(tabulate(tailor_pred$cluster_mapping))
-  res$logsize = res$logsize * 9 / mean(res$logsize)
+  res <- get_tsne_clusters(tailor_obj)
+  res$phenotype <- as.factor(tailor_obj$cat_clusters$labels)
+  res$logsize <- log(tabulate(tailor_pred$cluster_mapping))
+  res$logsize <- res$logsize * 9 / mean(res$logsize)
 
-  g = ggplot(res, aes(x=.data$tsne_1, y=.data$tsne_2)) +
+  g <- ggplot(res, aes(x=.data$tsne_1, y=.data$tsne_2)) +
     geom_point(aes(color = .data$phenotype, size = .data$logsize)) +
     scale_color_brewer(palette = "Paired")
 
@@ -726,13 +726,13 @@ plot_tsne_clusters = function(tailor_obj, tailor_pred)
 #'                           mixture_components = 50)
 #' plot_tsne_bin_centers(tailor_obj)
 #' @export
-plot_tsne_bin_centers = function(tailor_obj)
+plot_tsne_bin_centers <- function(tailor_obj)
 {
-  binc = tailor_obj$tsne_centers
-  binc$phenotype = tailor_obj$cat_clusters$mixture_to_cluster[binc$cluster]
-  binc$phenotype = tailor_obj$cat_clusters$labels[binc$phenotype]
+  binc <- tailor_obj$tsne_centers
+  binc$phenotype <- tailor_obj$cat_clusters$mixture_to_cluster[binc$cluster]
+  binc$phenotype <- tailor_obj$cat_clusters$labels[binc$phenotype]
 
-  g = ggplot(binc, aes(x=.data$tsne_1, y=.data$tsne_2)) +
+  g <- ggplot(binc, aes(x=.data$tsne_1, y=.data$tsne_2)) +
     geom_point(aes(color = .data$phenotype)) +
     scale_color_brewer(palette = "Paired")
 
@@ -750,105 +750,105 @@ plot_tsne_bin_centers = function(tailor_obj)
 #' @param defs Definitions of major phenotypes.
 #' @return 2d embeddings, color-coded by cluster membershi and major phenotype.
 #' @export
-plot_tsne_global = function(data, tailor_obj, tailor_pred, defs)
+plot_tsne_global <- function(data, tailor_obj, tailor_pred, defs)
 {
   # Preprocess input
   if(is(data, "flowSet"))
   {
-    data = suppressWarnings(as(data, "flowFrame"))
-    flowCore::exprs(data) = flowCore::exprs(data)[,which(flowCore::colnames(data) != "Original")]
+    data <- suppressWarnings(as(data, "flowFrame"))
+    flowCore::exprs(data) <- flowCore::exprs(data)[,which(flowCore::colnames(data) != "Original")]
   }
 
-  if(is(data,"flowFrame")) data = flowCore::exprs(data)
+  if(is(data,"flowFrame")) data <- flowCore::exprs(data)
 
-  n_items = nrow(data)
+  n_items <- nrow(data)
 
-  params = colnames(tailor_obj$mixture$mean)
+  params <- colnames(tailor_obj$mixture$mean)
 
   # Subsample, because t-SNE is slow
   if (n_items > 1e4)
   {
-    sel = sample(n_items, 1e4)
+    sel <- sample(n_items, 1e4)
   } else
   {
-    sel = seq_len(n_items)
+    sel <- seq_len(n_items)
   }
-  data = data[sel,params]
-  perplexity = min((length(sel) - 1)/3, 30)
+  data <- data[sel,params]
+  perplexity <- min((length(sel) - 1)/3, 30)
 
   # Learn t-SNE embedding and add column for cluster membership
-  tsne = Rtsne(data, perplexity = perplexity)$Y
-  colnames(tsne) = c("tsne_1", "tsne_2")
-  tsne = data.frame(tsne)
-  tsne$cluster = tailor_pred$cluster_mapping[sel]
-  tsne$cluster_pheno = as.factor(tailor_obj$cat_clusters$labels[tsne$cluster])
-  tsne$cluster = as.factor(tsne$cluster)
+  tsne <- Rtsne(data, perplexity = perplexity)$Y
+  colnames(tsne) <- c("tsne_1", "tsne_2")
+  tsne <- data.frame(tsne)
+  tsne$cluster <- tailor_pred$cluster_mapping[sel]
+  tsne$cluster_pheno <- as.factor(tailor_obj$cat_clusters$labels[tsne$cluster])
+  tsne$cluster <- as.factor(tsne$cluster)
 
 
   # Decide on major phenotype of each subsampled data point
-  cutoffs = get_1D_cutoffs(tailor_obj$mixtures_1D$mixtures, tailor_obj$mixtures_1D$to_merge,
+  cutoffs <- get_1D_cutoffs(tailor_obj$mixtures_1D$mixtures, tailor_obj$mixtures_1D$to_merge,
                            params)
-  data_cut = data
+  data_cut <- data
   for (param in params)
   {
-    cutoff = cutoffs[[param]]
-    data_cut[,param] = "hi"
-    data_cut[which(data[,param] < cutoff), param] = "lo"
+    cutoff <- cutoffs[[param]]
+    data_cut[,param] <- "hi"
+    data_cut[which(data[,param] < cutoff), param] <- "lo"
   }
 
-  phenotype = character(length = length(sel))
-  phenotype[seq_len(length(sel))] = "Other"
+  phenotype <- character(length = length(sel))
+  phenotype[seq_len(length(sel))] <- "Other"
   for (pheno in rownames(defs))
   {
-    relevant = names(defs)[which(defs[pheno,] != "dc")]
-    data_relevant = data_cut[,relevant]
+    relevant <- names(defs)[which(defs[pheno,] != "dc")]
+    data_relevant <- data_cut[,relevant]
     phenotype[which( apply(data_relevant, 1,
                            function(x) identical(as.character(x),
-                                                 as.character(defs[pheno,relevant]))))] = pheno
+                                                 as.character(defs[pheno,relevant]))))] <- pheno
   }
 
-  tsne$phenotype = as.factor(phenotype)
+  tsne$phenotype <- as.factor(phenotype)
 
 
   # Display plots
-  # mycolors = c(brewer.pal(name="Set1", n = 9), brewer.pal(name="Set3", n = 12))
-  # mycolors = mycolors[seq_len(2, 10:21)]
+  # mycolors <- c(brewer.pal(name="Set1", n = 9), brewer.pal(name="Set3", n = 12))
+  # mycolors <- mycolors[seq_len(2, 10:21)]
 
-  g = ggplot(tsne[which(tsne$phenotype != "Other"),],
+  g <- ggplot(tsne[which(tsne$phenotype != "Other"),],
              aes(x=.data$tsne_1, y=.data$tsne_2, color = .data$phenotype)) +
       geom_point(alpha = 0.35)
       # scale_color_manual(values = mycolors)
 
   print(g)
 
-  # ncol = min(5, ceiling(sqrt(length(tsne$cluster_pheno))) )
+  # ncol <- min(5, ceiling(sqrt(length(tsne$cluster_pheno))) )
   # ggplot(tsne, aes(x=.data$tsne_1, y=.data$tsne_2, color = .data$cluster)) +
   #   geom_point() +
   #   # scale_color_manual(values = mycolors) +
   #   facet_wrap(~ .data$cluster_pheno, ncol = ncol)
 
-  xlim = ggplot_build(g)$layout$panel_scales_x[[1]]$range$range
-  ylim = ggplot_build(g)$layout$panel_scales_y[[1]]$range$range
+  xlim <- ggplot_build(g)$layout$panel_scales_x[[1]]$range$range
+  ylim <- ggplot_build(g)$layout$panel_scales_y[[1]]$range$range
 
 
-  plot_list = list()
+  plot_list <- list()
 
-  majphenos = levels(tsne$cluster_pheno)
+  majphenos <- levels(tsne$cluster_pheno)
 
   for (majpheno in majphenos)
   {
-    sel = which(tsne$cluster_pheno == majpheno)
+    sel <- which(tsne$cluster_pheno == majpheno)
 
-    g = ggplot(tsne[sel,], aes(x=.data$tsne_1, y=.data$tsne_2)) +
+    g <- ggplot(tsne[sel,], aes(x=.data$tsne_1, y=.data$tsne_2)) +
       geom_point(aes(color = .data$cluster), alpha = 0.35) +
       scale_x_continuous(limits = xlim) +
       scale_y_continuous(limits = ylim) +
       labs(title = majpheno, x = "", y = "")
 
-    plot_list[[majpheno]] = g
+    plot_list[[majpheno]] <- g
   }
 
-  ncol = ceiling(sqrt(length(majphenos)))
+  ncol <- ceiling(sqrt(length(majphenos)))
   gridExtra::grid.arrange(grobs = plot_list, ncol = ncol)
 }
 
@@ -861,31 +861,31 @@ plot_tsne_global = function(data, tailor_obj, tailor_pred, defs)
 #' @param params A list of markers to use; must be subset of colnames(data).
 #' @return Plots of kernel density estimate for each chosen parameter.
 #' @export
-plot_kdes_global = function(data, params)
+plot_kdes_global <- function(data, params)
 {
   # Preprocess input
   if(is(data, "flowSet"))
   {
-    data = suppressWarnings(as(data, "flowFrame"))
-    flowCore::exprs(data) = flowCore::exprs(data)[,which(flowCore::colnames(data) != "Original")]
+    data <- suppressWarnings(as(data, "flowFrame"))
+    flowCore::exprs(data) <- flowCore::exprs(data)[,which(flowCore::colnames(data) != "Original")]
   }
-  if(is(data,"flowFrame")) data = flowCore::exprs(data)
+  if(is(data,"flowFrame")) data <- flowCore::exprs(data)
 
-  global_kdes = make_kdes_global(data, params)
+  global_kdes <- make_kdes_global(data, params)
 
-  plot_list = list()
+  plot_list <- list()
   for (param in params)
   {
-    df = data.frame(global_kdes[[param]])
-    g = ggplot(df, aes(x=.data$x, y=.data$y)) +
+    df <- data.frame(global_kdes[[param]])
+    g <- ggplot(df, aes(x=.data$x, y=.data$y)) +
       geom_line() +
       labs(title = param, x = "", y = "") +
       theme_bw()
 
-    plot_list[[param]] = g
+    plot_list[[param]] <- g
   }
 
-  ncol = min(5, ceiling(sqrt(length(params))))
+  ncol <- min(5, ceiling(sqrt(length(params))))
   gridExtra::grid.arrange(grobs = plot_list, ncol = ncol)
 }
 
