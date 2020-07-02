@@ -37,18 +37,14 @@ find_phenobin_mean <- function(data, predictions,
                               parallel = FALSE,
                               verbose = FALSE)
 {
-  start.time <- Sys.time()
-
   n <- nrow(data)
   k <- length(bins)
   d <- length(params)
 
-  if(is.null(split_threshold))
-  {
+  if(is.null(split_threshold)) {
     n_repr <- rep(1, k)
     split_box_sizes <- sizes
-  } else
-  {
+  } else {
     n_repr <- ceiling(sizes/split_threshold)
     split_box_sizes <- integer(sum(n_repr))
   }
@@ -56,8 +52,7 @@ find_phenobin_mean <- function(data, predictions,
   means <- matrix(nrow = sum(n_repr), ncol = d)
   colnames(means) <- params
 
-  if(compute_var)
-  {
+  if(compute_var) {
     variances <- array(0, c(sum(n_repr),d,d))
   }
 
@@ -65,8 +60,7 @@ find_phenobin_mean <- function(data, predictions,
   counts <- vector("list", k)
 
   # Initialize lists of indices with appropriate size
-  for (i in seq_len(k))
-  {
+  for (i in seq_len(k)) {
     box <- bins[i]
     idx[[box]] <- integer(length = sizes[i])
     counts[[box]] <- 0
@@ -75,8 +69,7 @@ find_phenobin_mean <- function(data, predictions,
   if(verbose) { print("Done init!")}
 
   # For each event, place its index in the appropriate index list
-  for (row in selected)
-  {
+  for (row in selected) {
     box <- predictions[row]
     counts[[box]] <- counts[[box]] + 1
     idx[[box]][counts[[box]]] <- row
@@ -85,72 +78,45 @@ find_phenobin_mean <- function(data, predictions,
   if(verbose) { print("Compiled index lists.")}
 
   start <- 1
-
-  # #setup parallel backend to use many processors
-  # cores <- detectCores()
-  # clus <- makeCluster(cores[1])
-  # registerDoParallel(clus)
-
-  for (i in seq_len(k))
-  {
-    if (verbose & i%%500 == 0) { print(i) }
-
-
+  for (i in seq_len(k)) {
     # Split each box until it has fewer than split_threshold events; compute their means
     box <- bins[i]
     sel <- idx[[box]]
 
-    if (n_repr[i] == 1)
-    {
+    if (n_repr[i] == 1) {
       means[start,] <- apply(data[sel,params,drop=FALSE], 2, mean)
-    } else
-    {
-      if (length(sel) > 100000)
-      {
+    } else {
+      if (length(sel) > 100000) {
         # kmeans is just for binning purposes, don't care about convergence.
         # If there are many events, cap at 3 iterations to save time.
         km <- suppressWarnings(kmeans(x = round(data[sel,params,drop = FALSE],3),
                     centers = n_repr[i], iter.max = 3))
-      }
-      else
-      {
+      } else {
         km <- suppressWarnings(kmeans(x = round(data[sel,params,drop = FALSE],3),
                     centers = n_repr[i]))
       }
       means[c(start:(start + n_repr[i]-1)),] <- km$centers
     }
 
-
-    if (compute_var)
-    {
+    if (compute_var) {
       # Compute the in-box variance
 
-      if (length(sel) > 1)
-      {
+      if (length(sel) > 1) {
         # If box wasn't split, compute variance for entire box
-        if (n_repr[i] == 1)
-        {
+        if (n_repr[i] == 1) {
           split_box_sizes[start] <- sizes[i]
           var <- var(data[sel,params,drop = FALSE])
           variances[start,,] <- var
-
-          if (sum(is.na(var)) != 0)
-          {
-            cat(sum(is.na(var)), i, length(sel))
-          }
-        } else
-        {
+        } else {
           # Otherwise, compute for each piece
           data_this_box <- data[sel,params]
 
-          for (cl in seq_len(n_repr[i]))
-          {
+          for (cl in seq_len(n_repr[i])) {
             ind_cl <- which(km$cluster ==cl)
             split_box_sizes[start + cl -1] <- length(ind_cl)
 
             var <- var(data_this_box[ind_cl,,drop = FALSE])
-            if (sum(is.na(var)) != 0)
-            {
+            if (sum(is.na(var)) != 0) {
               var <- 0
             }
 
@@ -158,32 +124,22 @@ find_phenobin_mean <- function(data, predictions,
           }
         }
 
-      } else
-      {
+      } else {
         var <- 0
         variances[start,,] <- var
       }
 
-
     }
-
     start <- start + n_repr[i]
   }
 
-
-  # #stop cluster
-  # stopCluster(clus)
-
-  if(verbose) {print(Sys.time() - start.time)}
-
-  if (compute_var)
-  {
-    list("means" = means, "variances" = variances, "n_repr" = n_repr, "sizes" = split_box_sizes)
+  if (compute_var) {
+    l <- list("means" = means, "variances" = variances,
+              "n_repr" = n_repr, "sizes" = split_box_sizes)
+  } else {
+    l <- list("means" = means, "n_repr" = n_repr, "sizes" = split_box_sizes)
   }
-  else
-  {
-    list("means" = means, "n_repr" = n_repr, "sizes" = split_box_sizes)
-  }
+  return(l)
 }
 
 
@@ -194,27 +150,21 @@ find_phenobin_mean <- function(data, predictions,
 # are likely artifacts of compensation.
 find_to_merge <- function(mixtures, params, negative_threshold = 0.5, verbose = FALSE)
 {
-  start.time <- Sys.time()
   d <- length(mixtures)
   to_merge <- list()
 
-  for (param in params)
-  {
+  for (param in params) {
     mixture <- mixtures[[param]]
     k <- length(mixture$pro)
 
     small <- which(mixture$mean < negative_threshold)
 
-    if (length(small) >1)
-    {
+    if (length(small) >1) {
       to_merge[[param]] <- as.vector(small)
     }
   }
 
-  end.time <- Sys.time()
-  if(verbose) {print(end.time - start.time)}
-
-  to_merge
+  return(to_merge)
 }
 
 
@@ -224,21 +174,14 @@ find_to_merge <- function(mixtures, params, negative_threshold = 0.5, verbose = 
 mapping_from_mixtures <- function(data, mixtures, to_merge, params,
                                  parallel = FALSE, verbose = FALSE)
 {
-  start.time <- Sys.time()
-
   d <- length(mixtures)
   n <- nrow(data)
 
   col_list <- NULL
 
-  if (parallel)
-  {
-    #setup parallel backend to use many processors
-    cores <- detectCores()
-    cl <- makeCluster(cores[1])
-    registerDoParallel(cl)
-
+  if (parallel) {
     if (verbose) { cat("Mapping", n, "events to", d, "univariate mixtures in parallel...") }
+    cl <- start_parallel_cluster()
 
     data_param <- NULL # unnecessary definition, but R CMD check complains without it
 
@@ -250,17 +193,12 @@ mapping_from_mixtures <- function(data, mixtures, to_merge, params,
       k <- length(mixture$pro)
       n_small <- length(to_merge[[param]])
 
-
       # If there is only one component left after merging, skip this parameter
-      if (k < 2 | k == n_small)
-      {
+      if (k < 2 | k == n_small) {
         rep(0L,n)
-      }
-      else
-      {
+      } else {
         to_sum <- NULL
-        if (n_small > 1)
-        {
+        if (n_small > 1) {
           sum_base <- to_merge[[param]][1]
           to_sum <- to_merge[[param]][c(2:n_small)]
         }
@@ -269,18 +207,13 @@ mapping_from_mixtures <- function(data, mixtures, to_merge, params,
         posteriors <- matrix(0, nrow = n, ncol = k - length(to_sum))
         summed <- 0
 
-        for (i in seq(k))
-        {
+        for (i in seq(k)) {
           # If class i is to be merged with class sum_base, add the probabilities
-          if (i %in% to_sum)
-          {
+          if (i %in% to_sum) {
             summed <- summed + 1
             posteriors[,sum_base] <- posteriors[,sum_base] + mixture$pro[i] * dnorm(data_param, mean = mixture$mean[i],
                                                                                    sd = sqrt(mixture$variance$sigmasq[i]))
-          }
-          # Otherwise, make a separate column for class i
-          else
-          {
+          } else {
             posteriors[,i-summed] <- mixture$pro[i] * dnorm(data_param, mean = mixture$mean[i],
                                                            sd = sqrt(mixture$variance$sigmasq[i]))
           }
@@ -288,28 +221,22 @@ mapping_from_mixtures <- function(data, mixtures, to_merge, params,
 
         # The class assignment is given by the maximum posterior probability
         apply(posteriors, 1, which.max)
-
       }
     }
 
-    #stop cluster
     stopCluster(cl)
 
     colnames(mapping) <- params
-    for (param in params)
-    {
+    for (param in params) {
       if (mapping[1,param] != 0) {col_list = c(col_list, param)}
     }
     mapping <- mapping[,col_list]
-  }
-  else
-  {
+  } else {
     mapping <- matrix(nrow = n, ncol = 0)
 
     if (verbose) { cat("Mapping", n, "events to", d, "univariate mixtures sequentially: ") }
 
-    for (ind in seq(d))
-    {
+    for (ind in seq(d)) {
       param <- params[ind]
       mixture <- mixtures[[param]]
       k <- length(mixture$pro)
@@ -321,8 +248,7 @@ mapping_from_mixtures <- function(data, mixtures, to_merge, params,
       if (k < 2 | k == n_small) { next }
 
       to_sum <- NULL
-      if (n_small > 1)
-      {
+      if (n_small > 1) {
         sum_base <- to_merge[[param]][1]
         to_sum <- to_merge[[param]][c(2:n_small)]
       }
@@ -331,18 +257,13 @@ mapping_from_mixtures <- function(data, mixtures, to_merge, params,
       posteriors <- matrix(0, nrow = n, ncol = k - length(to_sum))
       summed <- 0
 
-      for (i in seq(k))
-      {
+      for (i in seq(k)) {
         # If class i is to be merged with class sum_base, add the probabilities
-        if (i %in% to_sum)
-        {
+        if (i %in% to_sum) {
           summed <- summed + 1
           posteriors[,sum_base] <- posteriors[,sum_base] + mixture$pro[i] * dnorm(data[,param], mean = mixture$mean[i],
                                                                                  sd = sqrt(mixture$variance$sigmasq[i]))
-        }
-        # Otherwise, make a separate column for class i
-        else
-        {
+        } else {
           posteriors[,i-summed] <- mixture$pro[i] * dnorm(data[,param], mean = mixture$mean[i],
                                                          sd = sqrt(mixture$variance$sigmasq[i]))
         }
@@ -359,12 +280,9 @@ mapping_from_mixtures <- function(data, mixtures, to_merge, params,
     }
     colnames(mapping) <- col_list
   }
-
-  end.time <- Sys.time()
   if(verbose) {cat("\n")}
-  if(verbose) {print(end.time - start.time)}
 
-  mapping
+  return(mapping)
 }
 
 
@@ -386,7 +304,8 @@ get_phenobin_summary <- function(phenobin)
   t_numeric <- table(predictions)
   t_numeric_sorted <- rev(order(t_numeric))
 
-  list("predictions" = predictions, "bins_sorted" = t_numeric[t_numeric_sorted])
+  l <- list("predictions" = predictions, "bins_sorted" = t_numeric[t_numeric_sorted])
+  return(l)
 }
 
 
@@ -396,12 +315,10 @@ get_1D_mixtures_custom <- function(data, params, k = 3,
                                   separate_neg = FALSE,
                                   verbose = FALSE)
 {
-  start.time <- Sys.time()
   fit_list <- list()
 
   # Keep all data, or sample a subset to speed up
-  if (sample_fraction == 1)
-  {
+  if (sample_fraction == 1) {
     sel <- seq_len(nrow(data))
   } else
   {
@@ -409,15 +326,12 @@ get_1D_mixtures_custom <- function(data, params, k = 3,
     sel <- sample(nrow(data), sample_size)
   }
 
-  for (param in params)
-  {
+  for (param in params) {
     if (verbose) {cat(param, " ")}
 
     dat <- data[sel,param]
-
     # If flag is true, get rid of negative values, which are compensation artifacts
-    if (separate_neg)
-    {
+    if (separate_neg) {
       negatives <- dat[which(dat < 0)]
       dat <- dat[which(dat > 0)]
     }
@@ -427,8 +341,7 @@ get_1D_mixtures_custom <- function(data, params, k = 3,
     fit_list[[param]] <- fit$parameters
 
     # If flag is true, model negative population separately, and add to mixture list
-    if (separate_neg)
-    {
+    if (separate_neg) {
       fit <- Mclust(negatives, G = 1, modelNames = "V", verbose = FALSE)
       fit_list[[param]]$pro <- c(fit$parameters$pro, fit_list[[param]]$pro)
       fit_list[[param]]$mean <- c(fit$parameters$mean, fit_list[[param]]$mean)
@@ -445,12 +358,9 @@ get_1D_mixtures_custom <- function(data, params, k = 3,
       fit_list[[param]]$pro[c(2:(k+1))] <- fit_list[[param]]$pro[c(2:(k+1))] * lp / (ln + lp)
     }
   }
-
-  end.time <- Sys.time()
   if(verbose) {cat("\n")}
-  if(verbose) {print(end.time - start.time)}
 
-  fit_list
+  return(fit_list)
 }
 
 
@@ -477,25 +387,21 @@ plot_distribution_1d <- function(dat, mixtures, name,
   g <- p$pro[1] * dnorm(pts, mean = m, sd = sd)
 
   # Plot the first mixture component
-  if (separate)
-  {
+  if (separate) {
     plot(pts, g, type = "l", xlim = c(min,max), ylim = c(0,1),
          xlab = name, ylab = "density",
          col = "blue", main = "components", cex.main = 2)
   }
 
   # Same for other components
-  if (k > 1)
-  {
-    for (comp in c(2:k))
-    {
+  if (k > 1) {
+    for (comp in c(2:k)) {
       m <- p$mean[comp]
       sd <- sqrt(p$variance$sigmasq[comp])
 
       g1 <-  p$pro[comp] * dnorm(pts, mean = m, sd = sd)
 
-      if (separate)
-      {
+      if (separate) {
         lines(pts, g1, col = colors[comp])
       } else
       {
@@ -504,8 +410,7 @@ plot_distribution_1d <- function(dat, mixtures, name,
     }
   }
 
-  if (!separate)
-  {
+  if (!separate) {
     plot(pts, g, type = "l", xlim = c(min,max), ylim = c(0,1),
          xlab = name, ylab = "density", main = "Gaussian mixture", cex.main = 2)
   }

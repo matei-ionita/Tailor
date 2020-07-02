@@ -44,30 +44,19 @@ bulk_weighted_gmm <- function(data, k, params, weights = NULL,
                              relative_loglik_threshold = 5e-3,
                              verbose = FALSE)
 {
-  start.time <- Sys.time()
-
   n <- nrow(data)
 
-  if (is.null(initialize))
-  {
-    # Random initialization
+  if (is.null(initialize)) {
     mixture <- initialize_mixture(data,k,params,verbose)
-  }
-  else
-  {
-    # Initialization given in function argument
+  } else {
     mixture <- initialize
     mixture$pro <- mixture$pro / sum(mixture$pro)
   }
 
-  # If no weights are given, assume they are equal
-  if (is.null(weights))
-  {
+  if (is.null(weights)) {
     weights <- rep(1, n)
   }
-
-  # Normalize the weight vector
-  sum_weights <- sum(weights)
+  sum_weights = sum(weights)
   weights <- weights / sum_weights
 
   if(verbose) { cat("Total weight: ", sum_weights, "\n")}
@@ -79,15 +68,9 @@ bulk_weighted_gmm <- function(data, k, params, weights = NULL,
   probsum <- e_step_result$probsum
 
   loglik <- sum( log(probsum) * weights) * sum_weights / n
-
-  # Variable that will keep track of log likelihood for each iteration
   loglik_history <- loglik
 
-
-  for (step in seq_len(max_steps))
-  {
-    if(max_steps == 0) {break}
-
+  for (step in seq_len(max_steps)) {
     if(verbose) {cat("Starting step ", step, "\n")}
 
     # Maximization step, with update rule modified to account for weights
@@ -103,29 +86,23 @@ bulk_weighted_gmm <- function(data, k, params, weights = NULL,
     loglik <- sum( log(probsum) * weights) * sum_weights / n
     loglik_history <- c(loglik_history, loglik)
 
-    # If log likelihood decreased, stop the algorithm
-    # This can only happen due to variance correction in m_step
     loglik_rel_change <- abs((loglik - loglik_history[step]) / loglik_history[step])
-    if ((step > 1) & (loglik_rel_change < 10*relative_loglik_threshold))
-    {
+    if ((step > 1) & (loglik_rel_change < 10*relative_loglik_threshold)) {
       mixture <- prev_mixture
 
-      if (!is.null(variance_correction))
-      {
+      if (!is.null(variance_correction)) {
         mixture <- correct_variances(mixture, variance_correction, event_probabilities, weights, verbose)
       }
 
       break
-    } else
-    {
+    } else {
       event_probabilities <- e_step_result$probs
     }
   }
 
-  if(verbose) {print(Sys.time() - start.time)}
-
-  list("mixture" = mixture, "event_probabilities" = event_probabilities,
+  l <- list("mixture" = mixture, "event_probabilities" = event_probabilities,
        "loglik" = loglik_history)
+  return(l)
 }
 
 
@@ -150,12 +127,11 @@ initialize_mixture <- function(data, k, params, verbose = FALSE)
   mixture$mean <- data[s,params,drop = FALSE]
 
   mixture$variance$sigma <- array(NaN, c(d,d,k))
-  for (component in seq_len(k))
-  {
+  for (component in seq_len(k)) {
     mixture$variance$sigma[,,component] <- diag(d)
   }
 
-  mixture
+  return(mixture)
 }
 
 
@@ -164,55 +140,35 @@ initialize_mixture <- function(data, k, params, verbose = FALSE)
 e_step <- function(data, mixture, params,
                   verbose = FALSE)
 {
-  start.time <- Sys.time()
   n <- nrow(data)
   k <- length(mixture$pro)
   d <- ncol(data)
 
-
   probs <- matrix(0, nrow = n, ncol = k)
 
   # For each cluster, compute the probability that the datapoints belong to it
-  for (cl in seq(k))
-  {
+  for (cl in seq(k)) {
     proportion <- mixture$pro[cl]
     mean <- mixture$mean[cl,]
     variance <- mixture$variance$sigma[,,cl]
 
-    if (d == 1)
-    {
+    if (d == 1) {
       # dnorm works with standard deviation, not variance
       probs[,cl] <- proportion * dnorm(data, mean, sqrt(variance))
     }
-    else
-    {
+    else {
       probs[,cl] <- proportion * dmvnorm(data, mean, variance)
     }
   }
 
-
   # Normalize the probability along each row
-
-
   probsum <- apply(probs, 1, sum)
-
-
-
   min <- min(which(probsum > 0))
   probsum[probsum == 0] <- min # To avoid division by 0
   probs <- probs/probsum
 
-
-
-  # Just for debugging, plot cluster assignments
-  #assignment_2d <- apply(probs, 1, which.max)
-  #g <- ggplot(data.frame(data),
-  #           aes(x=CD3, y=CD19, color = as.factor(assignment_2d) ) ) + geom_point()
-  #print(g)
-
-  if(verbose) { print(Sys.time() - start.time) }
-
-  list("probs" = probs, "probsum" = probsum)
+  l <- list("probs" = probs, "probsum" = probsum)
+  return(l)
 }
 
 
@@ -225,27 +181,19 @@ m_step <- function(data, mixture, event_probabilities, params,
   k <- ncol(event_probabilities)
   d <- ncol(data)
   n <- nrow(data)
-  weighted_probs <- event_probabilities * weights
 
+  weighted_probs <- event_probabilities * weights
   sqrt_probs <- sqrt(weighted_probs)
 
-
   mixture$pro <- apply(weighted_probs, 2, sum)
-
-
   mixture$mean <- t(weighted_probs)%*%data / mixture$pro
 
-  if (verbose) { cat("Updating mixture parameters ") }
-
-  for (slice in seq_len(k))
-  {
-
+  for (slice in seq_len(k)) {
     if (d==1)
     {
       # TO DO: rewrite d == 1 case
     }
-    else
-    {
+    else {
       scaled_data <- sqrt_probs[,slice] * data
       scaled_mean <- apply(scaled_data, 2, mean)
 
@@ -253,25 +201,16 @@ m_step <- function(data, mixture, event_probabilities, params,
       var <- n/mixture$pro[slice] * (scaled_var + outer(scaled_mean, scaled_mean) )
       var <- var - outer(mixture$mean[slice,], mixture$mean[slice,])
 
-      if(verbose & slice%%100 == 0)
-      {
-        cat(slice, " ")
-      }
-
-      # If flag is true, don't let variance get too close to 0
-      if (regularize_variance)
-      {
+      if (regularize_variance) {
         var <- var + 0.01 * diag(d)
       }
 
-
       mixture$variance$sigma[,,slice] <- var
-
       rm(var, scaled_var, scaled_mean, scaled_data)
     }
   }
 
-  mixture
+  return(mixture)
 }
 
 
@@ -279,22 +218,21 @@ m_step <- function(data, mixture, event_probabilities, params,
 # arising from replacing a bunch of events with the center of their phenobin
 correct_variances <- function(mixture, variance_correction, event_probabilities, weights, verbose = FALSE)
 {
-  if (verbose)
-  {
+  if (verbose) {
     print("Performing variance correction...")
   }
+
   k <- ncol(event_probabilities)
   weighted_probs <- event_probabilities * weights
 
-  for (slice in seq_len(k))
-  {
+  for (slice in seq_len(k)) {
     this_correction <- apply(weighted_probs[,slice] * variance_correction, c(2:3), sum)
     this_correction <- this_correction / mixture$pro[slice]
 
     mixture$variance$sigma[,,slice] <- mixture$variance$sigma[,,slice] + this_correction
   }
 
-  mixture
+  return(mixture)
 }
 
 
