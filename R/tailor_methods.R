@@ -372,6 +372,11 @@ categorical_labeling <- function(tailor_obj, defs)
 #' tailor_obj <- tailor_learn(data = fs_old,
 #'                           params = tailor_params,
 #'                           mixture_components = 50)
+#'
+#' defs <- read.csv("~/git/R/packages/Tailor/inst/extdata/pheno_definitions.csv",
+#'                  row.names = 1, stringsAsFactors = FALSE)
+#' tailor_obj <- categorical_labeling(tailor_obj, defs)
+#'
 #' tailor_pred <- tailor_predict(fs_old, tailor_obj)
 #'
 #' plot_tsne_clusters(tailor_obj, tailor_pred)
@@ -484,6 +489,11 @@ plot_tsne_global <- function(data, tailor_obj, tailor_pred, defs)
 #' @param data A flowSet, flowFrame or a matrix containing events along the rows, markers along columns.
 #' @param params A list of markers to use; must be subset of colnames(data).
 #' @return Plots of kernel density estimate for each chosen parameter.
+#' @examples
+#' fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+#' load(fileName)
+#' tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
+#' plot_kdes_global(fs_old, tailor_params)
 #' @export
 plot_kdes_global <- function(data, params)
 {

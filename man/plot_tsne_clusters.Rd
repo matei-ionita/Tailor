@@ -24,6 +24,11 @@ tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
 tailor_obj <- tailor_learn(data = fs_old,
                           params = tailor_params,
                           mixture_components = 50)
+
+defs <- read.csv("~/git/R/packages/Tailor/inst/extdata/pheno_definitions.csv",
+                 row.names = 1, stringsAsFactors = FALSE)
+tailor_obj <- categorical_labeling(tailor_obj, defs)
+
 tailor_pred <- tailor_predict(fs_old, tailor_obj)
 
 plot_tsne_clusters(tailor_obj, tailor_pred)

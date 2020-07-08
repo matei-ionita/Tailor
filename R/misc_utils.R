@@ -42,6 +42,7 @@ tailor_map_parallel <- function(data, tailor_obj, n_batch)
   }
   rm(data)
 
+  batch_data <- NULL
   mapping <- foreach(batch_data = iter(data_list), .combine = c, .packages = c("mvtnorm")) %dopar%
     {
       probs <- matrix(0, nrow = nrow(batch_data), ncol = k)

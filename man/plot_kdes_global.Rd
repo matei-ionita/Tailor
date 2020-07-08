@@ -17,3 +17,9 @@ Plots of kernel density estimate for each chosen parameter.
 \description{
 Plot 1D kdes of a dataset for visual inspection.
 }
+\examples{
+fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+load(fileName)
+tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
+plot_kdes_global(fs_old, tailor_params)
+}
