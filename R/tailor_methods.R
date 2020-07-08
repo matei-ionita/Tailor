@@ -109,20 +109,20 @@ tailor_learn <- function(data, params = NULL,
                            min_bin_size, mixture_components, verbose)
 
   if (verbose > 0) { print("Running bulk mixture model...")}
-  fit <- bulk_weighted_gmm(data = wsub$means,
+  mixture <- bulk_weighted_gmm(data = wsub$means,
                           k = mixture_components,
                           params = params,
                           weights = wsub$sizes,
-                          initialize = init_mixture,
+                          mixture = init_mixture,
                           variance_correction = wsub$variances,
                           verbose = (verbose >= 1))
 
   if(verbose > 0) print("Categorical merging...")
   cutoffs <- get_1D_cutoffs(mixtures_1D$mixtures, mixtures_1D$to_merge, params)
-  cat_clusters <- categorical_merging(fit$mixture$pro,
-                             fit$mixture$mean, cutoffs, params)
+  cat_clusters <- categorical_merging(mixture$pro,
+                             mixture$mean, cutoffs, params)
 
-  tailor_obj <- list("mixture" = fit$mixture, "mixtures_1D" = mixtures_1D,
+  tailor_obj <- list("mixture" = mixture, "mixtures_1D" = mixtures_1D,
                      "cat_clusters" = cat_clusters)
   class(tailor_obj) <- "tailor"
   return(tailor_obj)

@@ -38,7 +38,7 @@
 ################################################################################
 
 bulk_weighted_gmm <- function(data, k, params, weights = NULL,
-                             initialize = NULL,
+                             mixture = NULL,
                              regularize_variance = TRUE, variance_correction = NULL,
                              max_steps = 10,
                              relative_loglik_threshold = 5e-3,
@@ -46,10 +46,9 @@ bulk_weighted_gmm <- function(data, k, params, weights = NULL,
 {
   n <- nrow(data)
 
-  if (is.null(initialize)) {
+  if (is.null(mixture)) {
     mixture <- initialize_mixture(data,k,params,verbose)
   } else {
-    mixture <- initialize
     mixture$pro <- mixture$pro / sum(mixture$pro)
   }
 
@@ -59,10 +58,6 @@ bulk_weighted_gmm <- function(data, k, params, weights = NULL,
   sum_weights = sum(weights)
   weights <- weights / sum_weights
 
-  if(verbose) { cat("Total weight: ", sum_weights, "\n")}
-
-  # Begin with one Expectation step; compute probabilities of assigning events
-  # to the mixture components given in initialization
   e_step_result <- e_step(data, mixture, params, verbose = FALSE)
   event_probabilities <- e_step_result$probs
   probsum <- e_step_result$probsum
@@ -72,14 +67,11 @@ bulk_weighted_gmm <- function(data, k, params, weights = NULL,
 
   for (step in seq_len(max_steps)) {
     if(verbose) {cat("Starting step ", step, "\n")}
-
-    # Maximization step, with update rule modified to account for weights
     prev_mixture <- mixture
     mixture <- m_step(data, mixture, event_probabilities,
                      params, weights, variance_correction,
                      regularize_variance, verbose = FALSE)
 
-    # Expectation step, identical to un-weighted EM algorithm
     e_step_result <- e_step(data, mixture, params, verbose = FALSE)
     probsum <- e_step_result$probsum
 
@@ -93,16 +85,13 @@ bulk_weighted_gmm <- function(data, k, params, weights = NULL,
       if (!is.null(variance_correction)) {
         mixture <- correct_variances(mixture, variance_correction, event_probabilities, weights, verbose)
       }
-
       break
     } else {
       event_probabilities <- e_step_result$probs
     }
   }
 
-  l <- list("mixture" = mixture, "event_probabilities" = event_probabilities,
-       "loglik" = loglik_history)
-  return(l)
+  return(mixture)
 }
 
 
