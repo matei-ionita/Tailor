@@ -11,8 +11,6 @@ tailor_learn(
   min_bin_size = NULL,
   max_bin_size = NULL,
   mixtures_1D = NULL,
-  do_tsne = FALSE,
-  do_variance_correction = TRUE,
   parallel = FALSE,
   verbose = 0.5
 )
@@ -36,12 +34,6 @@ weighted EM algorithm closely approximates a run of vanilla EM on the entire dat
 \item{mixtures_1D}{Pre-computed 1D mixture models, to be used for binning.
 These are computed from scratch if not provided.}
 
-\item{do_tsne}{Boolean flag; if true, computes t-SNE reduction to 2D of the bin centers,
-for use in visualizations.}
-
-\item{do_variance_correction}{Boolean flag; if true, corrects the variances of the mixture
-components found in weighted EM, to account for intra-bin variance. TRUE is strongly recommended.}
-
 \item{parallel}{Boolean flag; if true, uses multithreading to speed up computation.}
 
 \item{verbose}{If > 0, outputs milestone information. If >=1, also outputs information about
@@ -55,7 +47,6 @@ of all mixture components.}
 \item{mixtures_1D}{}
 \item{cat_clusters}{A named list containing information about the categorical clusters found by
 the model: phenotype, cluster centers, and a mapping from mixture components to categorical clusters.}
-\item{tsne_centers}{Optional: a dimensional reduction to 2D of the bin centers.}
 }
 }
 \description{

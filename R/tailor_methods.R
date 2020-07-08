@@ -40,10 +40,6 @@ NULL
 #' weighted EM algorithm closely approximates a run of vanilla EM on the entire dataset.
 #' @param mixtures_1D Pre-computed 1D mixture models, to be used for binning.
 #' These are computed from scratch if not provided.
-#' @param do_tsne Boolean flag; if true, computes t-SNE reduction to 2D of the bin centers,
-#' for use in visualizations.
-#' @param do_variance_correction Boolean flag; if true, corrects the variances of the mixture
-#' components found in weighted EM, to account for intra-bin variance. TRUE is strongly recommended.
 #' @param parallel Boolean flag; if true, uses multithreading to speed up computation.
 #' @param verbose If > 0, outputs milestone information. If >=1, also outputs information about
 #' running utilities. If >1, debugging mode.
@@ -54,7 +50,6 @@ NULL
 #'   \item{mixtures_1D}{}
 #'   \item{cat_clusters}{A named list containing information about the categorical clusters found by
 #'   the model: phenotype, cluster centers, and a mapping from mixture components to categorical clusters.}
-#'   \item{tsne_centers}{Optional: a dimensional reduction to 2D of the bin centers.}
 #' }
 #' @examples
 #' # Load data and define analytical parameters
@@ -81,14 +76,11 @@ tailor_learn <- function(data, params = NULL,
                         mixture_components = 200,
                         min_bin_size = NULL, max_bin_size = NULL,
                         mixtures_1D = NULL,
-                        do_tsne = FALSE,
-                        do_variance_correction = TRUE,
                         parallel = FALSE,
                         verbose = 0.5)
 {
   data <- as_matrix(data)
   if (is.null(params)) params <- colnames(data)
-  d <- length(params)
 
   if (is.null(min_bin_size)) {
     min_bin_size <- max(5,ceiling(nrow(data) / 1e5))
@@ -104,57 +96,34 @@ tailor_learn <- function(data, params = NULL,
   }
 
   if (verbose > 0) print("Binning...")
-  mapping <- mapping_from_mixtures(data[,params], mixtures_1D$mixtures, mixtures_1D$to_merge,
-                                  params,
-                                  parallel = parallel, verbose = (verbose >= 1))
+  mapping <- mapping_from_mixtures(data[,params], mixtures_1D$mixtures,
+                                   mixtures_1D$to_merge, params,
+                                   parallel = parallel, verbose = (verbose >= 1))
   phenobin <- phenobin_label(mapping)
   phenobin_summary <- get_phenobin_summary(phenobin)
 
   if (verbose > 0) print("Weighted subsampling...")
-  weighted_subsample <- get_weighted_subsample(data, phenobin_summary, params,
+  wsub <- get_weighted_subsample(data, phenobin_summary, params,
                                                min_bin_size, max_bin_size, verbose)
-  nonzero <- which(weighted_subsample$sizes > 0)
-  repr_sizes <- weighted_subsample$sizes[nonzero]
-  repr_means <- weighted_subsample$means[nonzero,]
-  repr_variances <- weighted_subsample$variances[nonzero,,]
-
-  if (verbose > 1) {
-    cat("Total bin number after selecting and splitting: ", nrow(repr_means), "\n")
-    cat("Maximum bin size: ", max(repr_sizes), "\n")
-  }
-
   init_mixture <- get_init(data, phenobin_summary, params,
                            min_bin_size, mixture_components, verbose)
 
   if (verbose > 0) { print("Running bulk mixture model...")}
-  fit <- bulk_weighted_gmm(data = repr_means,
+  fit <- bulk_weighted_gmm(data = wsub$means,
                           k = mixture_components,
                           params = params,
-                          weights = repr_sizes,
+                          weights = wsub$sizes,
                           initialize = init_mixture,
-                          regularize_variance = do_variance_correction,
-                          variance_correction = repr_variances,
+                          variance_correction = wsub$variances,
                           verbose = (verbose >= 1))
 
   if(verbose > 0) print("Categorical merging...")
   cutoffs <- get_1D_cutoffs(mixtures_1D$mixtures, mixtures_1D$to_merge, params)
   cat_clusters <- categorical_merging(fit$mixture$pro,
-                             fit$mixture$mean,
-                             cutoffs,
-                             params)
+                             fit$mixture$mean, cutoffs, params)
 
-  if (do_tsne) {
-    if (verbose > 0) { print("Reducing phenobin centers to 2D...") }
-    tsne_centers <- get_tsne_centers(data = repr_means, probs = fit$event_probabilities)
-  }
-
-  if (do_tsne) {
-    tailor_obj <- list("mixture" = fit$mixture, "mixtures_1D" = mixtures_1D, "cat_clusters" = cat_clusters,
-         "tsne_centers" = tsne_centers)
-  } else {
-    tailor_obj <- list("mixture" = fit$mixture, "mixtures_1D" = mixtures_1D, "cat_clusters" = cat_clusters)
-  }
-
+  tailor_obj <- list("mixture" = fit$mixture, "mixtures_1D" = mixtures_1D,
+                     "cat_clusters" = cat_clusters)
   class(tailor_obj) <- "tailor"
   return(tailor_obj)
 }
@@ -521,51 +490,6 @@ plot_tsne_clusters <- function(tailor_obj, tailor_pred)
     scale_color_brewer(palette = "Paired")
 
   return(g)
-}
-
-
-
-
-#' @title plot_tsne_bin_centers
-#' @description Plot a t-SNE reduction to 2d of the cluster centroids.
-#' @param tailor_obj A tailor object, as obtained from tailor.learn.
-#' @return A 2d reduced plot of bin centers, which can be seen as representatives for the cell
-#' population. Color coded by major phenotype.
-#' @examples
-#' fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
-#' load(fileName)
-#' tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
-#'
-#' # Run with do_tsne flag set to TRUE
-#' tailor_obj <- tailor_learn(data = fs_old,
-#'                           params = tailor_params,
-#'                           mixture_components = 50,
-#'                           do_tsne = TRUE)
-#' plot_tsne_bin_centers(tailor_obj)
-#' @export
-plot_tsne_bin_centers <- function(tailor_obj)
-{
-  out <- tryCatch(
-    {
-      binc <- tailor_obj$tsne_centers
-      binc$phenotype <- tailor_obj$cat_clusters$mixture_to_cluster[binc$cluster]
-      binc$phenotype <- tailor_obj$cat_clusters$labels[binc$phenotype]
-
-      g <- ggplot(binc, aes(x=.data$tsne_1, y=.data$tsne_2)) +
-        geom_point(aes(color = .data$phenotype)) +
-        scale_color_brewer(palette = "Paired")
-
-      g
-    },
-    error = function(cond) {
-      message("Make sure to run tailor_learn with do_tsne flag set to TRUE.")
-      message("Original error message:")
-      message(cond)
-      return(NA)
-    }
-  )
-
-  return(out)
 }
 
 

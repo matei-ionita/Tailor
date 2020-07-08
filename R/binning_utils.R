@@ -55,6 +55,7 @@ get_init <- function(data, phenobin_summary, params,
                                         verbose = (verbose >= 1))
 
 
+  d = length(params)
   mixture <- list()
   mixture$pro <- sizes[init_bins]
   mixture$mean <- init_parameters$means
@@ -387,6 +388,8 @@ get_1D_mixtures_default <- function(data, params, parallel, verbose)
   mixtures_1D$to_merge <- find_to_merge(mixtures_1D, params,
                                         negative_threshold = 0.5,
                                         verbose = (verbose == 1))
+
+  return(mixtures_1D)
 }
 
 
