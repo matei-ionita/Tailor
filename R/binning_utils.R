@@ -447,6 +447,63 @@ get_1D_mixtures_custom <- function(data, params, k = 3,
 }
 
 
+learn_1D_mixtures_parallel <- function(data, max_mixture, prior_BIC)
+{
+  cl <- start_parallel_cluster()
+
+  data_param <- NULL
+  fit_list <- foreach (data_param = iter(data, by = 'col'), .packages = c("mclust")) %dopar%
+    {
+      param <- colnames(data_param)[1]
+
+      # Use Bayesian information criterion to choose best k
+      BIC <- mclustBIC(data_param, G = seq_len(max_mixture), modelNames = "V", verbose = FALSE)
+
+      # A tweak to favor smaller k
+      for (k in seq_len(max_mixture))
+      {
+        BIC[k] <- BIC[k] - prior_BIC*k*log(length(data_param), base = 2)
+      }
+
+      # Fit the model with the chosen k
+      fit <- Mclust(data_param, x=BIC, verbose = FALSE)
+      fit$parameters
+    }
+  names(fit_list) <- params
+
+  #stop cluster
+  stopCluster(cl)
+
+  return(fit_list)
+}
+
+
+learn_1D_mixtures_sequential <- function(data, max_mixture, prior_BIC, verbose)
+{
+  fit_list <- list()
+
+  for (param in params) {
+    if (verbose) {cat(param, " ")}
+
+    dat <- data[,param]
+
+    # Use Bayesian information criterion to choose best k
+    BIC <- mclustBIC(dat, G = seq_len(max_mixture), modelNames = "V", verbose = FALSE)
+
+    # A tweak to favor smaller k
+    for (k in seq_len(max_mixture)) {
+      BIC[k] <- BIC[k] - prior_BIC*k*log(length(dat), base = 2)
+    }
+
+    # Fit the model with the chosen k
+    fit <- Mclust(dat, x=BIC, verbose = FALSE)
+    fit_list[[param]] <- fit$parameters
+  }
+
+  return(fit_list)
+}
+
+
 
 
 #########################

@@ -158,85 +158,25 @@ tailor_learn <- function(data, params = NULL,
 tailor_predict <- function(data, tailor_obj, n_batch = 64,
                           parallel = FALSE, verbose = FALSE)
 {
-  k <- length(tailor_obj$mixture$pro)
-  logpro <- log(tailor_obj$mixture$pro)
   params <- colnames(tailor_obj$mixture$mean)
 
   data <- as_matrix(data)
   data <- data[,params]
-  n <- nrow(data)
-
-  mapping <- integer(length = n)
-  batch_size <- ceiling(n/n_batch)
 
   if (parallel)
   {
     if (verbose) { cat("Analyzing ", n_batch, " batches in parallel.") }
-    clust <- start_parallel_cluster()
-
-    data_list <- list()
-    for (batch in seq_len(n_batch))
-    {
-      start_batch <- (batch - 1) * batch_size + 1
-      end_batch <- batch * batch_size
-      if (batch == n_batch) { end_batch <- n }
-
-      data_list[[batch]] <- data[c(start_batch:end_batch),params]
-    }
-    rm(data)
-
-    mapping <- foreach(batch_data = iter(data_list), .combine = c, .packages = c("mvtnorm")) %dopar%
-      {
-        posteriors <- matrix(0, nrow = nrow(batch_data), ncol = k)
-
-        for (cl in seq(k))
-        {
-          mean <- tailor_obj$mixture$mean[cl,]
-          sigma <- tailor_obj$mixture$variance$sigma[,,cl]
-          posteriors[,cl] <- logpro[cl] + dmvnorm(batch_data, mean, sigma, log = TRUE)
-        }
-
-        # Assign each datapoint to the cluster of maximum probability
-        result <- apply(posteriors, 1, which.max)
-        rm(posteriors)
-        gc()
-
-        result
-      }
-
-    #stop cluster
-    stopCluster(clust)
+    mapping <- tailor_map_parallel(data, tailor_obj, n_batch)
   } else {
     if (verbose) { cat("Analyzing ", n_batch, " batches sequentially: ") }
-
-    for (batch in seq_len(n_batch)) {
-      if(verbose) {cat(batch, " ")}
-      start_batch <- (batch - 1) * batch_size + 1
-      end_batch <- batch * batch_size
-      if (batch == n_batch) { end_batch = n }
-
-      batch_data <- data[c(start_batch:end_batch),params]
-
-      # For each cluster, compute the probability that data in current batch
-      # are drawn from it
-      posteriors <- matrix(0, nrow = end_batch - start_batch + 1, ncol = k)
-
-      for (cl in seq(k)) {
-        weight <- tailor_obj$mixture$pro[cl]
-        mean <- tailor_obj$mixture$mean[cl,]
-        sigma <- tailor_obj$mixture$variance$sigma[,,cl]
-
-        posteriors[,cl] <- weight * dmvnorm(batch_data, mean, sigma)
-      }
-
-      # Assign each datapoint to the cluster of maximum probability
-      mapping[c(start_batch:end_batch)] <- apply(posteriors, 1, which.max)
-    }
+    mapping <- tailor_map_sequential(data, tailor_obj, n_batch, verbose)
   }
+
   if(verbose) {cat("\n")}
 
+  mix_to_clust <- tailor_obj$cat_clusters$mixture_to_cluster
   return(list(mixture_mapping = mapping,
-       cluster_mapping = tailor_obj$cat_clusters$mixture_to_cluster[mapping]))
+       cluster_mapping = mix_to_clust[mapping]))
 }
 
 
@@ -279,6 +219,7 @@ get_1D_mixtures <- function(data, params, max_mixture = 3,
     sample_size <- ceiling(sample_fraction * nrow(data))
     sel <- sample(nrow(data), sample_size)
   }
+  data = data[sel,]
 
   if (is.null(prior_BIC)) {
     prior_BIC <- exp(-3.7 + 0.732 * log(5 * length(sel)))
@@ -286,58 +227,15 @@ get_1D_mixtures <- function(data, params, max_mixture = 3,
 
   if (parallel) {
     if (verbose) cat("Learning", length(params), "1D mixtures in parallel...")
-    cl <- start_parallel_cluster()
-
-    data_param <- NULL # unnecessary definition, but R CMD check complains without it
-
-    fit_list <- foreach (data_param = iter(data[sel,], by = 'col'), .packages = c("mclust")) %dopar%
-      {
-        param <- colnames(data_param)[1]
-
-        # Use Bayesian information criterion to choose best k
-        BIC <- mclustBIC(data_param, G = seq_len(max_mixture), modelNames = "V", verbose = FALSE)
-
-        # A tweak to favor smaller k
-        for (k in seq_len(max_mixture))
-        {
-          BIC[k] <- BIC[k] - prior_BIC*k*log(length(data_param), base = 2)
-        }
-
-        # Fit the model with the chosen k
-        fit <- Mclust(data_param, x=BIC, verbose = FALSE)
-        fit$parameters
-      }
-    names(fit_list) <- params
-
-    #stop cluster
-    stopCluster(cl)
-  } else {
-    fit_list <- list()
-
+    mixtures <- learn_1D_mixtures_parallel(data,max_mixture,prior_BIC)
+  }
+  else {
     if(verbose) cat("Learning", length(params), "1D mixtures sequentially: ")
-
-    for (param in params) {
-      if (verbose) {cat(param, " ")}
-
-      dat <- data[sel,param]
-
-
-      # Use Bayesian information criterion to choose best k
-      BIC <- mclustBIC(dat, G = seq_len(max_mixture), modelNames = "V", verbose = FALSE)
-
-      # A tweak to favor smaller k
-      for (k in seq_len(max_mixture)) {
-        BIC[k] <- BIC[k] - prior_BIC*k*log(length(dat), base = 2)
-      }
-
-      # Fit the model with the chosen k
-      fit <- Mclust(dat, x=BIC, verbose = FALSE)
-      fit_list[[param]] <- fit$parameters
-    }
+    mixtures <- learn_1D_mixtures_sequential(data,max_mixture,prior_BIC,verbose)
   }
   if(verbose) {cat("\n")}
 
-  return(list(mixtures = fit_list))
+  return(list(mixtures = mixtures))
 }
 
 
