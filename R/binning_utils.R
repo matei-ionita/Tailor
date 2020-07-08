@@ -8,6 +8,66 @@
 
 
 
+
+
+get_weighted_subsample <- function(data, phenobin_summary, params,
+                                   min_bin_size, max_bin_size, verbose)
+{
+  large_bins <- which(phenobin_summary$bins_sorted >= min_bin_size)
+  bins <- as.integer(names(phenobin_summary$bins_sorted)[large_bins])
+  sizes <- as.vector(phenobin_summary$bins_sorted)[large_bins]
+  populous <- which(phenobin_summary$predictions %in% bins)
+
+  weighted_subsample <- find_phenobin_mean(data = data,
+                                            predictions = phenobin_summary$predictions,
+                                            bins = bins, sizes = sizes,
+                                            params = params,
+                                            selected = populous,
+                                            split_threshold = max_bin_size,
+                                            compute_var = TRUE,
+                                            verbose = (verbose >= 1))
+
+  return(weighted_subsample)
+}
+
+
+
+get_init <- function(data, phenobin_summary, params,
+                     min_bin_size, mixture_components, verbose)
+{
+  large_bins <- which(phenobin_summary$bins_sorted >= min_bin_size)
+  bins <- as.integer(names(phenobin_summary$bins_sorted)[large_bins])
+  sizes <- as.vector(phenobin_summary$bins_sorted)[large_bins]
+
+  candidate_bins <- seq_len(mixture_components)
+  init_bins <- which(sizes[candidate_bins] > 3 * min_bin_size) # heuristic: strive to improve
+  lost <- length(candidate_bins) - length(init_bins)
+  if (lost > 0) cat("Warning: dropped", lost, "mixture components due to too few events at initialization.\n")
+
+  populous <- which(phenobin_summary$predictions %in% bins[init_bins])
+  init_parameters <- find_phenobin_mean(data = data,
+                                        predictions = phenobin_summary$predictions,
+                                        bins = bins[init_bins], sizes = sizes[init_bins],
+                                        params = params,
+                                        selected = populous,
+                                        split_threshold = NULL,
+                                        compute_var = TRUE,
+                                        verbose = (verbose >= 1))
+
+
+  mixture <- list()
+  mixture$pro <- sizes[init_bins]
+  mixture$mean <- init_parameters$means
+  mixture$variance$sigma <- array(NaN, c(d,d,mixture_components))
+
+  for (component in init_bins) {
+    sigma <- init_parameters$variances[component,,]
+    mixture$variance$sigma[,,component] <- sigma
+  }
+
+  return(mixture)
+}
+
 ################################################################################
 # Given a partition of the data into "phenobins", i.e. bins determined by 1D
 # mixture modelling across each individual variable, find the mean and variance
@@ -309,6 +369,26 @@ get_phenobin_summary <- function(phenobin)
 }
 
 
+get_1D_mixtures_default <- function(data, params, parallel, verbose)
+{
+  if (verbose > 0) {print("Getting 1D mixtures...")}
+
+  sample_fraction <- 0.5
+  if (nrow(data) > 5e5) sample_fraction <- 0.2
+  if (nrow(data) > 1e7) sample_fraction <- 0.1
+
+  mixtures_1D <- get_1D_mixtures(data[,params], params, max_mixture = 3,
+                                 sample_fraction = sample_fraction,
+                                 parallel = parallel,
+                                 verbose = (verbose >= 1))
+
+  # Merge modes whose mean is small enough.
+  # These are likely compensation artifacts.
+  mixtures_1D$to_merge <- find_to_merge(mixtures_1D, params,
+                                        negative_threshold = 0.5,
+                                        verbose = (verbose == 1))
+}
+
 
 get_1D_mixtures_custom <- function(data, params, k = 3,
                                   sample_fraction = 0.2,
@@ -415,6 +495,11 @@ plot_distribution_1d <- function(dat, mixtures, name,
          xlab = name, ylab = "density", main = "Gaussian mixture", cex.main = 2)
   }
 }
+
+
+
+
+
 
 
 

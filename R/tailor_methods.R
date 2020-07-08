@@ -97,136 +97,47 @@ tailor_learn <- function(data, params = NULL,
     max_bin_size <- max(50,ceiling(nrow(data) / 1e3))
   }
 
-  # preliminary binning
-
   if (is.null(mixtures_1D)) {
-    # Learn 1D mixture model for each variable
-    if (verbose > 0) {print("Getting 1D mixtures...")}
-
-    sample_fraction <- 0.5
-    if (nrow(data) > 5e5) sample_fraction <- 0.2
-    if (nrow(data) > 1e7) sample_fraction <- 0.1
-
-    mixtures_1D <- get_1D_mixtures(data[,params], params, max_mixture = 3,
-                                    sample_fraction = sample_fraction,
-                                    parallel = parallel,
-                                    verbose = (verbose >= 1))
-
-    # Merge modes whose mean is small enough.
-    # These are likely compensation artifacts.
-    mixtures_1D$to_merge <- find_to_merge(mixtures_1D, params,
-                             negative_threshold = 0.5,
-                             verbose = (verbose == 1))
+    mixtures_1D <- get_1D_mixtures_default(data, params, parallel, verbose)
   } else {
-    # If given path to pre-computed mixtures, load them
     params <- names(mixtures_1D$mixtures)
   }
 
-  # Up-sample: assign each data point to most likely component of the model
-  if (verbose > 0) print("Assigning data to 1D mixtures...")
-
+  if (verbose > 0) print("Binning...")
   mapping <- mapping_from_mixtures(data[,params], mixtures_1D$mixtures, mixtures_1D$to_merge,
                                   params,
                                   parallel = parallel, verbose = (verbose >= 1))
   phenobin <- phenobin_label(mapping)
-
-
-  if (verbose > 0) print("Preparing initialization of bulk mixture model...")
-
-  # Parse phenobins
   phenobin_summary <- get_phenobin_summary(phenobin)
 
-  large_bins <- which(phenobin_summary$bins_sorted >= min_bin_size)
-  bins <- as.integer(names(phenobin_summary$bins_sorted)[large_bins])
-  sizes <- as.vector(phenobin_summary$bins_sorted)[large_bins]
-  populous <- which(phenobin_summary$predictions %in% bins)
-
-  if(verbose > 1) {
-    cat("Total bin number before splitting: ", length(phenobin_summary$bins_sorted), "\n")
-    cat("Maximum bin size: ", sizes[1], "\n")
-  }
-
-
-
-  phenobin_parameters <- find_phenobin_mean(data = data,
-                                           predictions = phenobin_summary$predictions,
-                                           bins = bins, sizes = sizes,
-                                           params = params,
-                                           selected = populous,
-                                           split_threshold = max_bin_size,
-                                           compute_var = do_variance_correction,
-                                           parallel = parallel,
-                                           verbose = (verbose >= 1))
-
-  nonzero <- which(phenobin_parameters$sizes > 0)
-  repr_sizes <- phenobin_parameters$sizes[nonzero]
-  repr_means <- phenobin_parameters$means[nonzero,]
-  repr_variances <- phenobin_parameters$variances[nonzero,,]
+  if (verbose > 0) print("Weighted subsampling...")
+  weighted_subsample <- get_weighted_subsample(data, phenobin_summary, params,
+                                               min_bin_size, max_bin_size, verbose)
+  nonzero <- which(weighted_subsample$sizes > 0)
+  repr_sizes <- weighted_subsample$sizes[nonzero]
+  repr_means <- weighted_subsample$means[nonzero,]
+  repr_variances <- weighted_subsample$variances[nonzero,,]
 
   if (verbose > 1) {
     cat("Total bin number after selecting and splitting: ", nrow(repr_means), "\n")
     cat("Maximum bin size: ", max(repr_sizes), "\n")
   }
 
-  # Prepare initialization of bulk mixture model
-  candidate_bins <- seq_len(mixture_components)
-  init_bins <- which(sizes[candidate_bins] > 3 * min_bin_size) # heuristic: strive to improve
-  lost <- length(candidate_bins) - length(init_bins)
-  if (lost > 0) cat("Warning: dropped", lost, "mixture components due to too few events at initialization.\n")
+  init_mixture <- get_init(data, phenobin_summary, params,
+                           min_bin_size, mixture_components, verbose)
 
-  populous <- which(phenobin_summary$predictions %in% bins[init_bins])
-  phenobin_parameters <- find_phenobin_mean(data = data,
-                                           predictions = phenobin_summary$predictions,
-                                           bins = bins[init_bins], sizes = sizes[init_bins],
-                                           params = params,
-                                           selected = populous,
-                                           split_threshold = NULL,
-                                           compute_var = TRUE,
-                                           parallel = parallel,
-                                           verbose = (verbose >= 1))
-
-
-  mixture <- list()
-  mixture$pro <- sizes[init_bins]
-  mixture$mean <- phenobin_parameters$means
-  mixture$variance$sigma <- array(NaN, c(d,d,mixture_components))
-
-  for (component in init_bins) {
-    sigma <- phenobin_parameters$variances[component,,]
-    mixture$variance$sigma[,,component] <- sigma
-  }
-
-
-  # Learn bulk mixture model on weighted subsample
   if (verbose > 0) { print("Running bulk mixture model...")}
-
-  if (do_variance_correction) {
-    fit <- bulk_weighted_gmm(data = repr_means,
-                            k = mixture_components,
-                            params = params,
-                            weights = repr_sizes,
-                            initialize = mixture,
-                            regularize_variance = TRUE,
-                            variance_correction = repr_variances,
-                            verbose = (verbose >= 1))
-  }
-  else {
-    fit <- bulk_weighted_gmm(data = repr_means,
-                            k = mixture_components,
-                            params = params,
-                            weights = repr_sizes,
-                            initialize = mixture,
-                            regularize_variance = TRUE,
-                            variance_correction = NULL,
-                            verbose = (verbose >= 1))
-  }
+  fit <- bulk_weighted_gmm(data = repr_means,
+                          k = mixture_components,
+                          params = params,
+                          weights = repr_sizes,
+                          initialize = init_mixture,
+                          regularize_variance = do_variance_correction,
+                          variance_correction = repr_variances,
+                          verbose = (verbose >= 1))
 
   if(verbose > 0) print("Categorical merging...")
-
-  # Use the 1D mixture models to decide on +/- cutoffs
   cutoffs <- get_1D_cutoffs(mixtures_1D$mixtures, mixtures_1D$to_merge, params)
-
-  # Categorical merging
   cat_clusters <- categorical_merging(fit$mixture$pro,
                              fit$mixture$mean,
                              cutoffs,
@@ -237,7 +148,6 @@ tailor_learn <- function(data, params = NULL,
     tsne_centers <- get_tsne_centers(data = repr_means, probs = fit$event_probabilities)
   }
 
-
   if (do_tsne) {
     tailor_obj <- list("mixture" = fit$mixture, "mixtures_1D" = mixtures_1D, "cat_clusters" = cat_clusters,
          "tsne_centers" = tsne_centers)
@@ -246,7 +156,7 @@ tailor_learn <- function(data, params = NULL,
   }
 
   class(tailor_obj) <- "tailor"
-  tailor_obj
+  return(tailor_obj)
 }
 
 
@@ -279,13 +189,13 @@ tailor_learn <- function(data, params = NULL,
 tailor_predict <- function(data, tailor_obj, n_batch = 64,
                           parallel = FALSE, verbose = FALSE)
 {
-  data <- as_matrix(data)
-  data <- data[,params]
-  n <- nrow(data)
-
   k <- length(tailor_obj$mixture$pro)
   logpro <- log(tailor_obj$mixture$pro)
   params <- colnames(tailor_obj$mixture$mean)
+
+  data <- as_matrix(data)
+  data <- data[,params]
+  n <- nrow(data)
 
   mapping <- integer(length = n)
   batch_size <- ceiling(n/n_batch)
