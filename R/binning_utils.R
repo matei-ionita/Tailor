@@ -101,6 +101,7 @@ find_phenobin_mean <- function(data, predictions,
   n <- nrow(data)
   k <- length(bins)
   d <- length(params)
+  data = data[,params]
 
   if(is.null(split_threshold)) {
     n_repr <- rep(1, k)
@@ -112,84 +113,27 @@ find_phenobin_mean <- function(data, predictions,
 
   means <- matrix(nrow = sum(n_repr), ncol = d)
   colnames(means) <- params
+  variances <- array(0, c(sum(n_repr),d,d))
 
-  if(compute_var) {
-    variances <- array(0, c(sum(n_repr),d,d))
-  }
-
-  idx <- vector("list", k)
-  counts <- vector("list", k)
-
-  # Initialize lists of indices with appropriate size
-  for (i in seq_len(k)) {
-    box <- bins[i]
-    idx[[box]] <- integer(length = sizes[i])
-    counts[[box]] <- 0
-  }
-
-  if(verbose) { print("Done init!")}
-
-  # For each event, place its index in the appropriate index list
-  for (row in selected) {
-    box <- predictions[row]
-    counts[[box]] <- counts[[box]] + 1
-    idx[[box]][counts[[box]]] <- row
-  }
-
-  if(verbose) { print("Compiled index lists.")}
+  idx <- get_bin_list(bins, sizes, selected, predictions, k)
 
   start <- 1
   for (i in seq_len(k)) {
-    # Split each box until it has fewer than split_threshold events; compute their means
     box <- bins[i]
     sel <- idx[[box]]
 
     if (n_repr[i] == 1) {
-      means[start,] <- apply(data[sel,params,drop=FALSE], 2, mean)
+      means[start,] <- apply(data[sel,,drop=FALSE], 2, mean)
     } else {
-      if (length(sel) > 100000) {
-        # kmeans is just for binning purposes, don't care about convergence.
-        # If there are many events, cap at 3 iterations to save time.
-        km <- suppressWarnings(kmeans(x = round(data[sel,params,drop = FALSE],3),
-                    centers = n_repr[i], iter.max = 3))
-      } else {
-        km <- suppressWarnings(kmeans(x = round(data[sel,params,drop = FALSE],3),
-                    centers = n_repr[i]))
-      }
+      km <- split_bin_kmeans(data,sel,n_repr[i])
       means[c(start:(start + n_repr[i]-1)),] <- km$centers
     }
 
     if (compute_var) {
-      # Compute the in-box variance
-
-      if (length(sel) > 1) {
-        # If box wasn't split, compute variance for entire box
-        if (n_repr[i] == 1) {
-          split_box_sizes[start] <- sizes[i]
-          var <- var(data[sel,params,drop = FALSE])
-          variances[start,,] <- var
-        } else {
-          # Otherwise, compute for each piece
-          data_this_box <- data[sel,params]
-
-          for (cl in seq_len(n_repr[i])) {
-            ind_cl <- which(km$cluster ==cl)
-            split_box_sizes[start + cl -1] <- length(ind_cl)
-
-            var <- var(data_this_box[ind_cl,,drop = FALSE])
-            if (sum(is.na(var)) != 0) {
-              var <- 0
-            }
-
-            variances[start+cl-1,,] <- var
-          }
-        }
-
-      } else {
-        var <- 0
-        variances[start,,] <- var
-      }
-
+      bin_info <- compute_bin_variance(data, sel, n_repr[i], start, km,
+                                       sizes[i], variances, split_box_sizes)
+      variances <- bin_info$variances
+      split_box_sizes <- bin_info$sizes
     }
     start <- start + n_repr[i]
   }
@@ -203,6 +147,82 @@ find_phenobin_mean <- function(data, predictions,
   return(l)
 }
 
+
+get_bin_list <- function(bins, sizes, selected, predictions, k)
+{
+  idx <- vector("list", k)
+  counts <- vector("list", k)
+
+  # Initialize lists of indices with appropriate size
+  for (i in seq_len(k)) {
+    box <- bins[i]
+    idx[[box]] <- integer(length = sizes[i])
+    counts[[box]] <- 0
+  }
+
+  # For each event, place its index in the appropriate index list
+  for (row in selected) {
+    box <- predictions[row]
+    counts[[box]] <- counts[[box]] + 1
+    idx[[box]][counts[[box]]] <- row
+  }
+
+  return(idx)
+}
+
+
+split_bin_kmeans <- function(data, sel, k)
+{
+  if (length(sel) > 100000) {
+    # kmeans is just for binning purposes, don't care about convergence.
+    # If there are many events, cap at 3 iterations to save time.
+    km <- suppressWarnings(kmeans(x = round(data[sel,,drop = FALSE],3),
+                                  centers = k, iter.max = 3))
+  }
+  else {
+    km <- suppressWarnings(kmeans(x = round(data[sel,,drop = FALSE],3),
+                                  centers = k))
+  }
+
+  return(km)
+}
+
+
+compute_bin_variance <- function(data, sel, n_repr, start, km,
+                                 size, variances, split_box_sizes)
+{
+  if (length(sel) > 1) {
+
+    # If box wasn't split, compute variance for entire box
+    if (n_repr == 1) {
+      split_box_sizes[start] <- size
+      var <- var(data[sel,,drop = FALSE])
+      variances[start,,] <- var
+    } else {
+      # Otherwise, compute for each piece
+      data_this_box <- data[sel,]
+
+      for (cl in seq_len(n_repr)) {
+        ind_cl <- which(km$cluster ==cl)
+        split_box_sizes[start + cl -1] <- length(ind_cl)
+
+        var <- var(data_this_box[ind_cl,,drop = FALSE])
+        if (sum(is.na(var)) != 0) {
+          var <- 0
+        }
+
+        variances[start+cl-1,,] <- var
+      }
+    }
+
+  } else {
+    var <- 0
+    variances[start,,] <- var
+  }
+
+  l = list(variances = variances, sizes = split_box_sizes)
+  return(l)
+}
 
 
 
@@ -237,114 +257,125 @@ mapping_from_mixtures <- function(data, mixtures, to_merge, params,
 {
   d <- length(mixtures)
   n <- nrow(data)
-
-  col_list <- NULL
+  data = data[,params]
 
   if (parallel) {
     if (verbose) { cat("Mapping", n, "events to", d, "univariate mixtures in parallel...") }
-    cl <- start_parallel_cluster()
-
-    data_param <- NULL # unnecessary definition, but R CMD check complains without it
-
-    mapping <- foreach(data_param = iter(data, by='col'),
-                      .combine = cbind, .packages = c("mvtnorm")) %dopar%
-    {
-      param <- colnames(data_param)[1]
-      mixture <- mixtures[[param]]
-      k <- length(mixture$pro)
-      n_small <- length(to_merge[[param]])
-
-      # If there is only one component left after merging, skip this parameter
-      if (k < 2 | k == n_small) {
-        rep(0L,n)
-      } else {
-        to_sum <- NULL
-        if (n_small > 1) {
-          sum_base <- to_merge[[param]][1]
-          to_sum <- to_merge[[param]][c(2:n_small)]
-        }
-
-        # Compute posterior probabilities for each class (up to a normalization factor)
-        posteriors <- matrix(0, nrow = n, ncol = k - length(to_sum))
-        summed <- 0
-
-        for (i in seq(k)) {
-          # If class i is to be merged with class sum_base, add the probabilities
-          if (i %in% to_sum) {
-            summed <- summed + 1
-            posteriors[,sum_base] <- posteriors[,sum_base] + mixture$pro[i] * dnorm(data_param, mean = mixture$mean[i],
-                                                                                   sd = sqrt(mixture$variance$sigmasq[i]))
-          } else {
-            posteriors[,i-summed] <- mixture$pro[i] * dnorm(data_param, mean = mixture$mean[i],
-                                                           sd = sqrt(mixture$variance$sigmasq[i]))
-          }
-        }
-
-        # The class assignment is given by the maximum posterior probability
-        apply(posteriors, 1, which.max)
-      }
-    }
-
-    stopCluster(cl)
-
-    colnames(mapping) <- params
-    for (param in params) {
-      if (mapping[1,param] != 0) {col_list = c(col_list, param)}
-    }
-    mapping <- mapping[,col_list]
-  } else {
-    mapping <- matrix(nrow = n, ncol = 0)
-
+    mapping <- map_1D_parallel(data, mixtures, to_merge)
+  }
+  else {
     if (verbose) { cat("Mapping", n, "events to", d, "univariate mixtures sequentially: ") }
+    mapping <- map_1D_sequential(data, mixtures, to_merge, verbose)
+  }
+  if(verbose) {cat("\n")}
 
-    for (ind in seq(d)) {
-      param <- params[ind]
-      mixture <- mixtures[[param]]
-      k <- length(mixture$pro)
-      n_small <- length(to_merge[[param]])
+  return(mapping)
+}
 
-      if (verbose) { cat(param, " ") }
 
-      # If there is only one component left after merging, skip this parameter
-      if (k < 2 | k == n_small) { next }
+map_1D_parallel <- function(data, mixtures, to_merge)
+{
+  cl <- start_parallel_cluster()
+  d <- length(mixtures)
+  n <- nrow(data)
 
+  data_param <- NULL
+  mapping <- foreach(data_param = iter(data, by='col'),
+                     .combine = cbind, .packages = c("mvtnorm")) %dopar%
+  {
+    param <- colnames(data_param)[1]
+    mixture <- mixtures[[param]]
+    k <- length(mixture$pro)
+    n_small <- length(to_merge[[param]])
+
+    # If there is only one component left after merging, skip this parameter
+    if (k < 2 | k == n_small) {
+      rep(0L,n)
+    } else {
       to_sum <- NULL
       if (n_small > 1) {
         sum_base <- to_merge[[param]][1]
         to_sum <- to_merge[[param]][c(2:n_small)]
       }
 
-      # Compute posterior probabilities for each class (up to a normalization factor)
-      posteriors <- matrix(0, nrow = n, ncol = k - length(to_sum))
+      probs <- matrix(0, nrow = n, ncol = k - length(to_sum))
       summed <- 0
 
       for (i in seq(k)) {
         # If class i is to be merged with class sum_base, add the probabilities
         if (i %in% to_sum) {
           summed <- summed + 1
-          posteriors[,sum_base] <- posteriors[,sum_base] + mixture$pro[i] * dnorm(data[,param], mean = mixture$mean[i],
-                                                                                 sd = sqrt(mixture$variance$sigmasq[i]))
+          probs[,sum_base] <- probs[,sum_base] + mixture$pro[i] * dnorm(data_param, mean = mixture$mean[i],
+                                                                        sd = sqrt(mixture$variance$sigmasq[i]))
         } else {
-          posteriors[,i-summed] <- mixture$pro[i] * dnorm(data[,param], mean = mixture$mean[i],
-                                                         sd = sqrt(mixture$variance$sigmasq[i]))
+          probs[,i-summed] <- mixture$pro[i] * dnorm(data_param, mean = mixture$mean[i],
+                                                    sd = sqrt(mixture$variance$sigmasq[i]))
         }
       }
-      # The class assignment is given by the maximum posterior probability
-      class <- apply(posteriors, 1, which.max)
-
-      # Put together the class assignments for all parameters
-      mapping <- cbind(mapping, class, deparse.level = 0)
-      col_list <- c(col_list, param)
-
-      rm(posteriors, class)
-      gc()
+      apply(probs, 1, which.max)
     }
-    colnames(mapping) <- col_list
   }
-  if(verbose) {cat("\n")}
+  stopCluster(cl)
 
+  colnames(mapping) <- colnames(data)
+  col_list <- NULL
+  for (param in colnames(data)) {
+    if (mapping[1,param] != 0) {col_list = c(col_list, param)}
+  }
+  mapping <- mapping[,col_list]
   return(mapping)
 }
+
+
+map_1D_sequential <- function(data, mixtures, to_merge, verbose)
+{
+  d <- length(mixtures)
+  n <- nrow(data)
+
+  mapping <- matrix(nrow = n, ncol = 0)
+  params = colnames(data)
+  col_list <- NULL
+
+  for (ind in seq(d)) {
+    param <- params[ind]
+    mixture <- mixtures[[param]]
+    k <- length(mixture$pro)
+    n_small <- length(to_merge[[param]])
+
+    if (verbose) { cat(param, " ") }
+
+    # If there is only one component left after merging, skip this parameter
+    if (k < 2 | k == n_small) { next }
+
+    to_sum <- NULL
+    if (n_small > 1) {
+      sum_base <- to_merge[[param]][1]
+      to_sum <- to_merge[[param]][c(2:n_small)]
+    }
+
+    # Compute probabilities for each class (up to a normalization factor)
+    probs <- matrix(0, nrow = n, ncol = k - length(to_sum))
+    summed <- 0
+
+    for (i in seq(k)) {
+      # If class i is to be merged with class sum_base, add the probabilities
+      if (i %in% to_sum) {
+        summed <- summed + 1
+        probs[,sum_base] <- probs[,sum_base] + mixture$pro[i] * dnorm(data[,param], mean = mixture$mean[i],
+                                                                      sd = sqrt(mixture$variance$sigmasq[i]))
+      } else {
+        probs[,i-summed] <- mixture$pro[i] * dnorm(data[,param], mean = mixture$mean[i],
+                                                   sd = sqrt(mixture$variance$sigmasq[i]))
+      }
+    }
+    class <- apply(probs, 1, which.max)
+    mapping <- cbind(mapping, class, deparse.level = 0)
+    col_list <- c(col_list, param)
+  }
+  colnames(mapping) <- col_list
+  return(mapping)
+}
+
 
 
 # Collapse all class assignments into a string; this is the phenobin label
@@ -436,13 +467,11 @@ get_1D_mixtures_custom <- function(data, params, k = 3,
       # Rescale mixture proportions
       ln <- length(negatives)
       lp <- length(dat)
-
       fit_list[[param]]$pro[1] <- fit_list[[param]]$pro[1] * ln / (ln + lp)
       fit_list[[param]]$pro[c(2:(k+1))] <- fit_list[[param]]$pro[c(2:(k+1))] * lp / (ln + lp)
     }
   }
   if(verbose) {cat("\n")}
-
   return(fit_list)
 }
 
@@ -469,7 +498,7 @@ learn_1D_mixtures_parallel <- function(data, max_mixture, prior_BIC)
       fit <- Mclust(data_param, x=BIC, verbose = FALSE)
       fit$parameters
     }
-  names(fit_list) <- params
+  names(fit_list) <- colnames(data)
 
   #stop cluster
   stopCluster(cl)
@@ -482,7 +511,7 @@ learn_1D_mixtures_sequential <- function(data, max_mixture, prior_BIC, verbose)
 {
   fit_list <- list()
 
-  for (param in params) {
+  for (param in colnames(data)) {
     if (verbose) {cat(param, " ")}
 
     dat <- data[,param]
