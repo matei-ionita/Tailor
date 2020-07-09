@@ -363,7 +363,6 @@ categorical_labeling <- function(tailor_obj, defs)
 #' @title plot_tsne_clusters
 #' @description Plot a t-SNE reduction to 2d of the cluster centroids.
 #' @param tailor_obj A tailor object, as obtained from tailor.learn.
-#' @param tailor_pred A list of cluster assignments, as obtained from tailor.predict.
 #' @return A 2d reduced plot of cluster centroid, color-coded by major phenotype.
 #' @examples
 #' fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
@@ -377,22 +376,88 @@ categorical_labeling <- function(tailor_obj, defs)
 #'                  row.names = 1, stringsAsFactors = FALSE)
 #' tailor_obj <- categorical_labeling(tailor_obj, defs)
 #'
-#' tailor_pred <- tailor_predict(fs_old, tailor_obj)
-#'
-#' plot_tsne_clusters(tailor_obj, tailor_pred)
+#' plot_tsne_clusters(tailor_obj)
 #' @export
-plot_tsne_clusters <- function(tailor_obj, tailor_pred)
+plot_tsne_clusters <- function(tailor_obj)
 {
+  pro <- tailor_obj$mixture$pro
+  map <- tailor_obj$cat_clusters$mixture_to_cluster
+
   res <- get_tsne_clusters(tailor_obj)
   res$phenotype <- as.factor(tailor_obj$cat_clusters$labels)
-  res$logsize <- log(tabulate(tailor_pred$cluster_mapping))
+
+  cluster_ids <- seq_len(nrow(tailor_obj$cat_clusters$centers))
+  res$logsize <- log(sapply(cluster_ids,
+                            function(x) { sum(pro[which(map == x)]) }))
   res$logsize <- res$logsize * 9 / mean(res$logsize)
 
   g <- ggplot(res, aes(x=.data$tsne_1, y=.data$tsne_2)) +
     geom_point(aes(color = .data$phenotype, size = .data$logsize)) +
-    scale_color_brewer(palette = "Paired")
+    scale_color_brewer(palette = "Paired") +
+    guides(size = FALSE)
 
   return(g)
+}
+
+
+
+#' @title plot_tailor_fluorescence
+#' @description Plot a t-SNE reduction to 2d of the cluster centroids, color
+#' coded by mean fluorescence intensity for each parameter.
+#' @param tailor_obj A tailor object, as obtained from tailor.learn.
+#' @return A grid of 2d reduced plots of cluster centroids, one for each
+#' parameter.
+#' @examples
+#' fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+#' load(fileName)
+#' tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
+#' tailor_obj <- tailor_learn(data = fs_old,
+#'                           params = tailor_params,
+#'                           mixture_components = 50)
+#'
+#' plot_tailor_fluorescence(tailor_obj)
+#' @export
+plot_tailor_fluorescence <- function(tailor_obj)
+{
+  pro <- tailor_obj$mixture$pro
+  map <- tailor_obj$cat_clusters$mixture_to_cluster
+  cen <- tailor_obj$cat_clusters$centers
+
+  res <- get_tsne_clusters(tailor_obj)
+
+  cluster_ids <- seq_len(nrow(tailor_obj$cat_clusters$centers))
+  res$logsize <- log(sapply(cluster_ids,
+                            function(x) { sum(pro[which(map == x)]) }))
+  res$logsize <- res$logsize * 7 / mean(res$logsize)
+
+  plot_list <- list()
+  params = colnames(tailor_obj$mixture$mean)
+
+  mfi_amplitudes <- sapply(params, function(x) { max(cen[,x]) - min(cen[,x]) } )
+  max_amplitude  <- names(which.max(mfi_amplitudes))
+
+  for (param in params)
+  {
+    res$color <- cen[,param]
+    g <- ggplot(res, aes(x=.data$tsne_1, y = .data$tsne_2)) +
+      geom_point(aes(color = .data$color, size = .data$logsize), alpha = 0.8) +
+      scale_color_gradient2(low = "green", mid = "yellow",
+                            high = "red", midpoint = 1.5,
+                            guide = guide_colorbar(title = "Mean Fluorescence Intensity",
+                                                   direction = "horizontal",
+                                                   title.position = "top")) +
+      ggtitle(param) +
+      guides(size = FALSE)
+
+    if (param == max_amplitude) { color_legend <- get_legend(g) }
+
+    plot_list[[param]] <- g + theme(legend.position = "none")
+  }
+
+  plot_list[["legend"]] <- color_legend
+
+  ncol <- ceiling(sqrt(length(plot_list)))
+  return(gridExtra::grid.arrange(grobs = plot_list, ncol = ncol))
 }
 
 
@@ -514,6 +579,9 @@ plot_kdes_global <- function(data, params)
   ncol <- min(5, ceiling(sqrt(length(params))))
   return(gridExtra::grid.arrange(grobs = plot_list, ncol = ncol))
 }
+
+
+
 
 
 
