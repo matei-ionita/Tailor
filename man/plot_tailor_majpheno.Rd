@@ -10,13 +10,15 @@ plot_tailor_majpheno(tailor_obj)
 \item{tailor_obj}{A tailor object, as obtained from tailor.learn.}
 }
 \value{
-A 2d reduced plot of cluster centroid, color-coded by major phenotype.
+A 2d reduced plot of cluster centroid,
+color-coded by major phenotype.
 }
 \description{
 Plot a t-SNE reduction to 2d of the cluster centroids.
 }
 \examples{
-fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+fileName <- system.file("extdata", "sampled_flowset_old.rda",
+                         package = "Tailor")
 load(fileName)
 tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
 tailor_obj <- tailor_learn(data = fs_old,

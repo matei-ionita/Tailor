@@ -1,56 +1,59 @@
-################################################################################
-################################################################################
+#####################################
+#####################################
 #
-# Wrappers and utilities for 1D mixture modelling in flow cytometry data
+# Wrappers and utilities for binning
 #
-################################################################################
-################################################################################
+#####################################
+#####################################
 
 
 
 
 
-get_weighted_subsample <- function(data, phenobin_summary, params,
-                                   min_bin_size, max_bin_size, verbose)
+get_weighted_subsample <- function(data, bin_summary, params,
+                                   min_bin_size, max_bin_size,
+                                   verbose)
 {
-  large_bins <- which(phenobin_summary$bins_sorted >= min_bin_size)
-  bins <- as.integer(names(phenobin_summary$bins_sorted)[large_bins])
-  sizes <- as.vector(phenobin_summary$bins_sorted)[large_bins]
-  populous <- which(phenobin_summary$predictions %in% bins)
+  large_bins <- which(bin_summary$bins_sorted >= min_bin_size)
+  bins <- as.integer(names(bin_summary$bins_sorted)[large_bins])
+  sizes <- as.vector(bin_summary$bins_sorted)[large_bins]
+  populous <- which(bin_summary$predictions %in% bins)
 
-  weighted_subsample <- find_phenobin_mean(data = data,
-                                            predictions = phenobin_summary$predictions,
-                                            bins = bins, sizes = sizes,
-                                            params = params,
-                                            selected = populous,
-                                            split_threshold = max_bin_size,
-                                            verbose = (verbose >= 1))
+  weighted_subsample <- find_bin_mean(data = data,
+                                      predictions = bin_summary$predictions,
+                                      bins = bins, sizes = sizes,
+                                      params = params,
+                                      selected = populous,
+                                      split_threshold = max_bin_size,
+                                      verbose = (verbose >= 1))
 
   return(weighted_subsample)
 }
 
 
 
-get_init <- function(data, phenobin_summary, params,
-                     min_bin_size, mixture_components, verbose)
+get_init <- function(data, bin_summary, params,
+                     min_bin_size, mixture_components,
+                     verbose)
 {
-  large_bins <- which(phenobin_summary$bins_sorted >= min_bin_size)
-  bins <- as.integer(names(phenobin_summary$bins_sorted)[large_bins])
-  sizes <- as.vector(phenobin_summary$bins_sorted)[large_bins]
+  large_bins <- which(bin_summary$bins_sorted >= min_bin_size)
+  bins <- as.integer(names(bin_summary$bins_sorted)[large_bins])
+  sizes <- as.vector(bin_summary$bins_sorted)[large_bins]
 
   candidate_bins <- seq_len(mixture_components)
-  init_bins <- which(sizes[candidate_bins] > 3 * min_bin_size) # heuristic: strive to improve
+  init_bins <- which(sizes[candidate_bins] > 3 * min_bin_size)
   lost <- length(candidate_bins) - length(init_bins)
-  if (lost > 0) cat("Warning: dropped", lost, "mixture components due to too few events at initialization.\n")
+  if (lost > 0) cat("Warning: dropped", lost,
+                    "mixture components due to too few events.\n")
 
-  populous <- which(phenobin_summary$predictions %in% bins[init_bins])
-  init_parameters <- find_phenobin_mean(data = data,
-                                        predictions = phenobin_summary$predictions,
-                                        bins = bins[init_bins], sizes = sizes[init_bins],
-                                        params = params,
-                                        selected = populous,
-                                        split_threshold = NULL,
-                                        verbose = (verbose >= 1))
+  populous <- which(bin_summary$predictions %in% bins[init_bins])
+  init_parameters <- find_bin_mean(data = data,
+                                  predictions = bin_summary$predictions,
+                                  bins = bins[init_bins], sizes = sizes[init_bins],
+                                  params = params,
+                                  selected = populous,
+                                  split_threshold = NULL,
+                                  verbose = (verbose >= 1))
 
 
   d = length(params)
@@ -67,28 +70,9 @@ get_init <- function(data, phenobin_summary, params,
   return(mixture)
 }
 
-################################################################################
-# Given a partition of the data into "phenobins", i.e. bins determined by 1D
-# mixture modelling across each individual variable, find the mean and variance
-# of each phenobin.
-#
-# Input:
-#       data: a matrix with events along rows and variables along columns
-#       predictions: a vector of length = nrow(data), phenobin assignment for each event
-#       bins: those bins for which information should be computed (computing variances
-#             for more than 100k or so bins may cause memory issues)
-#       sizes: a vector of length = length(bins), counting the events in each box
-#       params: parameters to use
-#       compute_var: boolean flag; if true, computes variance in addition to mean
-#       verbose: boolean flag; if true, prints information at checkpoints
-# Output: list with two elements:
-#       means: matrix of dim = (length(bins), length(params));
-#             rows are means of events in a box
-#       variance: matrix of dim = (length(bins), length(params), length(params));
-#             slices are variances of events in a box
-################################################################################
 
-find_phenobin_mean <- function(data, predictions, bins, sizes, params,
+
+find_bin_mean <- function(data, predictions, bins, sizes, params,
                                selected, split_threshold = NULL,
                                parallel = FALSE, verbose = FALSE)
 {
@@ -215,10 +199,12 @@ compute_bin_variance <- function(data, sel, n_repr, start, km,
 
 
 
-# Find pairs of mixture components that represent the same biological population
-# So far, just merging components with mean < 0.5; any differences below this value
+# Find pairs of mixture components that represent the
+# same biological population. So far, just merging components
+# with mean < 0.5; any differences below this value
 # are likely artifacts of compensation.
-find_to_merge <- function(mixtures, params, negative_threshold = 0.5, verbose = FALSE)
+find_to_merge <- function(mixtures, params, negative_threshold = 0.5,
+                          verbose = FALSE)
 {
   d <- length(mixtures)
   to_merge <- list()
@@ -238,8 +224,9 @@ find_to_merge <- function(mixtures, params, negative_threshold = 0.5, verbose = 
 }
 
 
-# Map each data point to the most probable mixture component for all parameters.
-# to_merge is a list specifying components that should be merged; probabilities
+# Map each data point to the most probable mixture component
+# for all parameters. to_merge is a list specifying components
+# that should be merged; probabilities
 # are added in this case.
 mapping_from_mixtures <- function(data, mixtures, to_merge, params,
                                  parallel = FALSE, verbose = FALSE)
@@ -364,25 +351,26 @@ map_1D_sequential <- function(data, mixtures, to_merge, verbose)
 
 
 
-# Collapse all class assignments into a string; this is the phenobin label
-phenobin_label <- function(mapping)
+# Collapse all class assignments into a string; this is the bin label
+bin_label <- function(mapping)
 {
   apply(mapping, 1, function(x) {paste(x, collapse = "")})
 }
 
 
-# Process phenobin assignment, and return list of bins sorted by size
-get_phenobin_summary <- function(phenobin)
+# Process bin assignment, and return list of bins sorted by size
+get_bin_summary <- function(bin)
 {
-  t <- table(phenobin)
+  t <- table(bin)
   t_sorted <- rev(order(t))
   box_idx <- t
   box_idx[names(box_idx)] <- seq_len(length(box_idx))
-  predictions <- as.vector(box_idx[phenobin])
+  predictions <- as.vector(box_idx[bin])
   t_numeric <- table(predictions)
   t_numeric_sorted <- rev(order(t_numeric))
 
-  l <- list("predictions" = predictions, "bins_sorted" = t_numeric[t_numeric_sorted])
+  l <- list("predictions" = predictions,
+            "bins_sorted" = t_numeric[t_numeric_sorted])
   return(l)
 }
 
@@ -465,12 +453,14 @@ learn_1D_mixtures_parallel <- function(data, max_mixture, prior_BIC)
   cl <- start_parallel_cluster()
 
   data_param <- NULL
-  fit_list <- foreach (data_param = iter(data, by = 'col'), .packages = c("mclust")) %dopar%
+  fit_list <- foreach (data_param = iter(data, by = 'col'),
+                       .packages = c("mclust")) %dopar%
     {
       param <- colnames(data_param)[1]
 
       # Use Bayesian information criterion to choose best k
-      BIC <- mclustBIC(data_param, G = seq_len(max_mixture), modelNames = "V", verbose = FALSE)
+      BIC <- mclustBIC(data_param, G = seq_len(max_mixture),
+                       modelNames = "V", verbose = FALSE)
 
       # A tweak to favor smaller k
       for (k in seq_len(max_mixture))
@@ -501,7 +491,8 @@ learn_1D_mixtures_sequential <- function(data, max_mixture, prior_BIC, verbose)
     dat <- data[,param]
 
     # Use Bayesian information criterion to choose best k
-    BIC <- mclustBIC(dat, G = seq_len(max_mixture), modelNames = "V", verbose = FALSE)
+    BIC <- mclustBIC(dat, G = seq_len(max_mixture),
+                     modelNames = "V", verbose = FALSE)
 
     # A tweak to favor smaller k
     for (k in seq_len(max_mixture)) {
@@ -528,7 +519,8 @@ plot_distribution_1d <- function(dat, mixtures, name,
                                 separate = FALSE)
 {
   p <- mixtures[[name]]
-  pts <- seq(from = min(dat[,name]), to = max(dat[,name]), length.out = 500)
+  pts <- seq(from = min(dat[,name]), to = max(dat[,name]),
+             length.out = 500)
   k <- length(p$pro)
 
   # Vector of colors - assuming not more than 4 components
@@ -565,7 +557,8 @@ plot_distribution_1d <- function(dat, mixtures, name,
 
   if (!separate) {
     plot(pts, g, type = "l", xlim = c(min,max), ylim = c(0,1),
-         xlab = name, ylab = "density", main = "Gaussian mixture", cex.main = 2)
+         xlab = name, ylab = "density",
+         main = "Gaussian mixture", cex.main = 2)
   }
 }
 

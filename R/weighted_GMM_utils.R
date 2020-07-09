@@ -1,41 +1,11 @@
-################################################################################
-################################################################################
+#####################################################################
+#####################################################################
 #
 # Wrappers and utilities for mixture modelling in flow cytometry data
 #
-################################################################################
-################################################################################
+#####################################################################
+#####################################################################
 
-
-################################################################################
-# Wrapper for weighted GMM algorithm
-# Input:
-#     data: a matrix containing events along the rows, variables along columns
-#     k: the number of mixture components (clusters)
-#     params: the variables to use during modeling; must be subset of colnames(data)
-#     weights: a vector of length = nrow(data), specifying the weight of each event
-#     initialize: a list of three elements, used to initialize the components:
-#             pro: a vector of length = k, the proportions of the mixture
-#             mean: a matrix with dim = (k, length(params));
-#                   each row is the mean of one mixture component
-#             variance$sigma: an array with dim = (length(params), length(params),k)
-#                   each slice is the variance of one mixture component
-#     max_steps: hard limit on number of steps for the weighted EM algorithm;
-#             from my experience, more than the default of 10 leads to overfitting
-#     relative_loglik_threshold: if the relative improvement of the log likelihood
-#             objective function drops below threshold, terminate the algorithm
-#             before max_steps are reached
-#     regularize_variance: a boolean flag; if true, adds a small multiple of the
-#             d x d identity matrix to each variance
-#     variance_correction: variance lost in downsampling, added back at the end
-#     verbose: boolean flag; if true, prints info about running time
-# Output:
-#     list with two elements, resulting from the EM algorithm:
-#             mixture: a list describing the mixture; same format as `initialize`
-#             event_probabilities: a matrix with dim = (nrow(data),k);
-#                   the entry (ij) is the probability that event i is drawn from
-#                   component j
-################################################################################
 
 bulk_weighted_gmm <- function(data, k, params, weights = NULL, mixture = NULL,
                              regularize_variance = TRUE, variance_correction = NULL,
@@ -91,12 +61,12 @@ bulk_weighted_gmm <- function(data, k, params, weights = NULL, mixture = NULL,
 
 
 
-################################################################################
+################################################################
 # Utilities for weighted EM algorithm
-################################################################################
+################################################################
 
 
-# Quick and dirty random initialization, if no other is provided by user
+# Quick and dirty random initialization, if not provided by user
 # Works horribly for more than 2-3 dimensions
 initialize_mixture <- function(data, k, params, verbose = FALSE)
 {
@@ -118,7 +88,8 @@ initialize_mixture <- function(data, k, params, verbose = FALSE)
 }
 
 
-# Expectation step: given mixture parameters, update probabilities of event assignment
+# Expectation step: given mixture parameters,
+# update probabilities of event assignment.
 # Identical to unweighted version
 e_step <- function(data, mixture, params,
                   verbose = FALSE)
@@ -129,7 +100,8 @@ e_step <- function(data, mixture, params,
 
   probs <- matrix(0, nrow = n, ncol = k)
 
-  # For each cluster, compute the probability that the datapoints belong to it
+  # For each cluster, compute the probability that the
+  # datapoints belong to it
   for (cl in seq(k)) {
     proportion <- mixture$pro[cl]
     mean <- mixture$mean[cl,]
@@ -157,9 +129,11 @@ e_step <- function(data, mixture, params,
 
 
 # Maximization step: given event probabilities, update mixture parameters
-# Modified from vanilla EM, to take weights into account, and correct for missing variance
+# Modified from vanilla EM, to take weights into account,
+# and correct for missing variance
 m_step <- function(data, mixture, event_probabilities, params,
-                  weights, variance_correction, regularize_variance, verbose = FALSE)
+                  weights, variance_correction,
+                  regularize_variance, verbose = FALSE)
 {
   k <- ncol(event_probabilities)
   d <- ncol(data)
@@ -181,7 +155,8 @@ m_step <- function(data, mixture, event_probabilities, params,
       scaled_mean <- apply(scaled_data, 2, mean)
 
       scaled_var <- var(scaled_data)
-      var <- n/mixture$pro[slice] * (scaled_var + outer(scaled_mean, scaled_mean) )
+      var <- n/mixture$pro[slice] * (scaled_var +
+                                    outer(scaled_mean, scaled_mean) )
       var <- var - outer(mixture$mean[slice,], mixture$mean[slice,])
 
       if (regularize_variance) {
@@ -197,9 +172,12 @@ m_step <- function(data, mixture, event_probabilities, params,
 }
 
 
-# Variance correction: account for missing variance in each mixture component,
-# arising from replacing a bunch of events with the center of their phenobin
-correct_variances <- function(mixture, variance_correction, event_probabilities, weights, verbose = FALSE)
+# Variance correction: account for missing variance
+# in each mixture component, arising from replacing a
+# bunch of events with the center of their bin
+correct_variances <- function(mixture, variance_correction,
+                              event_probabilities, weights,
+                              verbose = FALSE)
 {
   if (verbose) {
     print("Performing variance correction...")
@@ -209,10 +187,12 @@ correct_variances <- function(mixture, variance_correction, event_probabilities,
   weighted_probs <- event_probabilities * weights
 
   for (slice in seq_len(k)) {
-    this_correction <- apply(weighted_probs[,slice] * variance_correction, c(2:3), sum)
+    this_correction <- apply(weighted_probs[,slice] * variance_correction,
+                             c(2:3), sum)
     this_correction <- this_correction / mixture$pro[slice]
 
-    mixture$variance$sigma[,,slice] <- mixture$variance$sigma[,,slice] + this_correction
+    mixture$variance$sigma[,,slice] <- mixture$variance$sigma[,,slice] +
+      this_correction
   }
 
   return(mixture)

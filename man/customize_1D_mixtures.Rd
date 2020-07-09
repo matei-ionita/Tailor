@@ -13,31 +13,39 @@ customize_1D_mixtures(
 )
 }
 \arguments{
-\item{data}{A flowSet, flowFrame or a matrix containing events along the rows, markers along columns.}
+\item{data}{A flowSet, flowFrame or a matrix containing
+events along the rows, markers along columns.}
 
-\item{to_customize}{A named list, whose names are markers, and values are the number of mixture
+\item{to_customize}{A named list, whose names are markers,
+and values are the number of mixture
 components to learn for each marker.}
 
-\item{mixtures_1D}{1D mixture models, obtained from get_1D_mixtures.}
+\item{mixtures_1D}{1D mixture models, obtained
+from get_1D_mixtures.}
 
-\item{sample_fraction}{A number between 0 and 1: the fraction of data points used in the
+\item{sample_fraction}{A number between 0 and 1:
+the fraction of data points used in the
 calculation of 1D mixture components, to improve runtime.}
 
-\item{verbose}{Boolean flag; if true, outputs timing and milestone information.}
+\item{verbose}{Boolean flag; if true, outputs timing
+and milestone information.}
 }
 \value{
 Updated version of mixtures_1D.
 }
 \description{
-After visual inspection of 1D mixtures, manually specify the number of
+After visual inspection of 1D mixtures,
+manually specify the number of
 mixture components to learn for some of the markers.
 }
 \examples{
-fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+fileName <- system.file("extdata", "sampled_flowset_old.rda",
+                        package = "Tailor")
 load(fileName)
 tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
 mixtures_1D <- get_1D_mixtures(fs_old, tailor_params)
 
 to_customize <- list("CD127BV421" = 2)
-mixtures_1D <- customize_1D_mixtures(fs_old, to_customize, mixtures_1D)
+mixtures_1D <- customize_1D_mixtures(fs_old, to_customize,
+                                     mixtures_1D)
 }

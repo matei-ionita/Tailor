@@ -9,18 +9,22 @@ categorical_labeling(tailor_obj, defs)
 \arguments{
 \item{tailor_obj}{A tailor object, as obtained from tailor.learn.}
 
-\item{defs}{A matrix or data frame giving definitions of major phenotypes.}
+\item{defs}{A matrix or data frame giving definitions
+of major phenotypes.}
 }
 \value{
-The tailor object, with updated information about categorical labels.
+The tailor object, with updated information
+about categorical labels.
 }
 \description{
-If major phenotype definitions are available (e.g. "CD4 Naive"),
-based on only a few of the markers
-in the panel, label each categorical cluster by one of these major phenotypes.
+If major phenotype definitions are available
+(e.g. "CD4 Naive"), based on only a few of the markers
+in the panel, label each categorical cluster by one of these
+major phenotypes.
 }
 \examples{
-fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+fileName <- system.file("extdata", "sampled_flowset_old.rda",
+                        package = "Tailor")
 load(fileName)
 tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
 tailor_obj <- tailor_learn(data = fs_old,

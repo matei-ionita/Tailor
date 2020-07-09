@@ -13,32 +13,42 @@ tailor_predict(
 )
 }
 \arguments{
-\item{data}{A flowSet, flowFrame or a matrix containing events along the rows, markers along columns.}
+\item{data}{A flowSet, flowFrame or a matrix containing
+events along the rows, markers along columns.}
 
-\item{tailor_obj}{A tailor object containing information about mixture components
-and categorical clusters. Can be obtained as the output of tailor.learn.}
+\item{tailor_obj}{A tailor object containing information
+about mixture components and categorical clusters. Can
+be obtained as the output of tailor.learn.}
 
-\item{n_batch}{A naive implementation would need nrow(data)*mixture_components memory.
+\item{n_batch}{A naive implementation would need
+nrow(data)*mixture_components memory.
 To reduce memory usage, process data in batches.}
 
-\item{parallel}{Boolean flag; if true, uses multithreading to process batches in parallel.
-For optimal runtime, if parallel = TRUE, n_batch should be a multiple of the number of
+\item{parallel}{Boolean flag; if true, uses multithreading
+to process batches in parallel.
+For optimal runtime, if parallel = TRUE, n_batch should be
+a multiple of the number of
 cores available, as returned by parallel::detectCores().}
 
-\item{verbose}{Boolean flag; if true, outputs timing and milestone information.}
+\item{verbose}{Boolean flag; if true, outputs timing and
+milestone information.}
 }
 \value{
-Two atomic vectors of integers, one giving the mixture component, and the other
+Two atomic vectors of integers, one giving the
+mixture component, and the other
 the categorical cluster, for each event.
 }
 \description{
-Takes as input a tailor object and some data (could be the data used
-to learn the tailor object, or some new data). Computes, for each event, the mixture
-component from which it is most likely drawn, then maps this mixture component to its
+Takes as input a tailor object and some
+data (could be the data used to learn the tailor object,
+or some new data). Computes, for each event, the mixture
+component from which it is most likely drawn, then maps
+this mixture component to its
 corresponding categorical cluster.
 }
 \examples{
-fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+fileName <- system.file("extdata", "sampled_flowset_old.rda",
+                        package = "Tailor")
 load(fileName)
 tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
 tailor_obj <- tailor_learn(data = fs_old,

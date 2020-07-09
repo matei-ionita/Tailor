@@ -113,13 +113,13 @@ tailor_learn <- function(data, params = NULL, mixtures_1D = NULL,
   mapping <- mapping_from_mixtures(data[,params], mixtures_1D$mixtures,
                                    mixtures_1D$to_merge, params,
                                    parallel = parallel, verbose = (verbose >= 1))
-  phenobin <- phenobin_label(mapping)
-  phenobin_summary <- get_phenobin_summary(phenobin)
+  bin <- bin_label(mapping)
+  bin_summary <- get_bin_summary(bin)
 
   if (verbose > 0) print("Weighted subsampling...")
-  wsub <- get_weighted_subsample(data, phenobin_summary, params,
+  wsub <- get_weighted_subsample(data, bin_summary, params,
                                  min_bin_size, max_bin_size, verbose)
-  init_mixture <- get_init(data, phenobin_summary, params,
+  init_mixture <- get_init(data, bin_summary, params,
                            min_bin_size, mixture_components, verbose)
 
   if (verbose > 0) { print("Running bulk mixture model...")}
@@ -141,23 +141,33 @@ tailor_learn <- function(data, params = NULL, mixtures_1D = NULL,
 
 
 #' @title tailor_predict
-#' @description Takes as input a tailor object and some data (could be the data used
-#' to learn the tailor object, or some new data). Computes, for each event, the mixture
-#' component from which it is most likely drawn, then maps this mixture component to its
+#' @description Takes as input a tailor object and some
+#' data (could be the data used to learn the tailor object,
+#' or some new data). Computes, for each event, the mixture
+#' component from which it is most likely drawn, then maps
+#' this mixture component to its
 #' corresponding categorical cluster.
-#' @param data A flowSet, flowFrame or a matrix containing events along the rows, markers along columns.
-#' @param tailor_obj A tailor object containing information about mixture components
-#' and categorical clusters. Can be obtained as the output of tailor.learn.
-#' @param n_batch A naive implementation would need nrow(data)*mixture_components memory.
+#' @param data A flowSet, flowFrame or a matrix containing
+#' events along the rows, markers along columns.
+#' @param tailor_obj A tailor object containing information
+#' about mixture components and categorical clusters. Can
+#' be obtained as the output of tailor.learn.
+#' @param n_batch A naive implementation would need
+#' nrow(data)*mixture_components memory.
 #' To reduce memory usage, process data in batches.
-#' @param parallel Boolean flag; if true, uses multithreading to process batches in parallel.
-#' For optimal runtime, if parallel = TRUE, n_batch should be a multiple of the number of
+#' @param parallel Boolean flag; if true, uses multithreading
+#' to process batches in parallel.
+#' For optimal runtime, if parallel = TRUE, n_batch should be
+#' a multiple of the number of
 #' cores available, as returned by parallel::detectCores().
-#' @param verbose Boolean flag; if true, outputs timing and milestone information.
-#' @return Two atomic vectors of integers, one giving the mixture component, and the other
+#' @param verbose Boolean flag; if true, outputs timing and
+#' milestone information.
+#' @return Two atomic vectors of integers, one giving the
+#' mixture component, and the other
 #' the categorical cluster, for each event.
 #' @examples
-#' fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+#' fileName <- system.file("extdata", "sampled_flowset_old.rda",
+#'                         package = "Tailor")
 #' load(fileName)
 #' tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
 #' tailor_obj <- tailor_learn(data = fs_old,
@@ -175,10 +185,12 @@ tailor_predict <- function(data, tailor_obj, n_batch = 64,
 
   if (parallel)
   {
-    if (verbose) { cat("Analyzing ", n_batch, " batches in parallel.") }
+    if (verbose) { cat("Analyzing ", n_batch,
+                       " batches in parallel.") }
     mapping <- tailor_map_parallel(data, tailor_obj, n_batch)
   } else {
-    if (verbose) { cat("Analyzing ", n_batch, " batches sequentially: ") }
+    if (verbose) { cat("Analyzing ", n_batch,
+                       " batches sequentially: ") }
     mapping <- tailor_map_sequential(data, tailor_obj, n_batch, verbose)
   }
 
@@ -192,24 +204,35 @@ tailor_predict <- function(data, tailor_obj, n_batch = 64,
 
 
 #' @title get_1D_mixtures
-#' @description Computes 1D mixture model for each marker separately, for use in binning step
-#' of tailor. It is difficult to find settings which work for all datasets. Therefore, it is
-#' recommended to inspect the results with inspect_1D_mixtures, and run get_1D_mixtures_custom
+#' @description Computes 1D mixture model for each marker
+#' separately, for use in binning step of tailor. It is
+#' difficult to find settings which work for all datasets.
+#' Therefore, it is recommended to inspect the results with
+#' inspect_1D_mixtures, and run get_1D_mixtures_custom
 #' for problematic markers.
-#' @param data A flowSet, flowFrame or a matrix containing events along the rows, markers along columns.
-#' @param params A list of markers to use; must be subset of colnames(data).
-#' @param max_mixture Will attempt to model each marker as k mixture components, for
-#' 1 <= k <= max_mixture. The best k is chosen based on a modified version of the Bayesian
+#' @param data A flowSet, flowFrame or a matrix containing
+#' events along the rows, markers along columns.
+#' @param params A list of markers to use; must be subset
+#' of colnames(data).
+#' @param max_mixture Will attempt to model each marker as
+#' k mixture components, for
+#' 1 <= k <= max_mixture. The best k is chosen based on a
+#' modified version of the Bayesian
 #' Information Criterion (BIC).
-#' @param prior_BIC Make this larger to favor a smaller number of mixture components.
-#' @param sample_fraction A number between 0 and 1: the fraction of data points used in the
+#' @param prior_BIC Make this larger to favor a smaller
+#' number of mixture components.
+#' @param sample_fraction A number between 0 and 1: the
+#' fraction of data points used in the
 #' calculation of 1D mixture components, to improve runtime.
-#' @param parallel Boolean flag; if true, uses multithreading to process markers in parallel.
-#' @param verbose Boolean flag; if true, outputs timing and milestone information.
-#' @return A named list of 1D mixture models, giving mixture proportions, means and variances
-#' for each marker.
+#' @param parallel Boolean flag; if true, uses multithreading
+#' to process markers in parallel.
+#' @param verbose Boolean flag; if true, outputs timing and
+#' milestone information.
+#' @return A named list of 1D mixture models, giving mixture
+#' proportions, means and variances for each marker.
 #' @examples
-#' fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+#' fileName <- system.file("extdata", "sampled_flowset_old.rda",
+#'                         package = "Tailor")
 #' load(fileName)
 #' tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
 #' mixtures_1D <- get_1D_mixtures(fs_old, tailor_params)
@@ -236,12 +259,16 @@ get_1D_mixtures <- function(data, params, max_mixture = 3,
   }
 
   if (parallel) {
-    if (verbose) cat("Learning", length(params), "1D mixtures in parallel...")
-    mixtures <- learn_1D_mixtures_parallel(data,max_mixture,prior_BIC)
+    if (verbose) cat("Learning", length(params),
+                     "1D mixtures in parallel...")
+    mixtures <- learn_1D_mixtures_parallel(data,max_mixture,
+                                           prior_BIC)
   }
   else {
-    if(verbose) cat("Learning", length(params), "1D mixtures sequentially: ")
-    mixtures <- learn_1D_mixtures_sequential(data,max_mixture,prior_BIC,verbose)
+    if(verbose) cat("Learning", length(params),
+                    "1D mixtures sequentially: ")
+    mixtures <- learn_1D_mixtures_sequential(data,max_mixture,
+                                             prior_BIC,verbose)
   }
   if(verbose) {cat("\n")}
 
@@ -250,24 +277,32 @@ get_1D_mixtures <- function(data, params, max_mixture = 3,
 
 
 #' @title customize_1D_mixtures
-#' @description After visual inspection of 1D mixtures, manually specify the number of
+#' @description After visual inspection of 1D mixtures,
+#' manually specify the number of
 #' mixture components to learn for some of the markers.
-#' @param data A flowSet, flowFrame or a matrix containing events along the rows, markers along columns.
-#' @param to_customize A named list, whose names are markers, and values are the number of mixture
+#' @param data A flowSet, flowFrame or a matrix containing
+#' events along the rows, markers along columns.
+#' @param to_customize A named list, whose names are markers,
+#' and values are the number of mixture
 #' components to learn for each marker.
-#' @param mixtures_1D 1D mixture models, obtained from get_1D_mixtures.
-#' @param sample_fraction A number between 0 and 1: the fraction of data points used in the
+#' @param mixtures_1D 1D mixture models, obtained
+#' from get_1D_mixtures.
+#' @param sample_fraction A number between 0 and 1:
+#' the fraction of data points used in the
 #' calculation of 1D mixture components, to improve runtime.
-#' @param verbose Boolean flag; if true, outputs timing and milestone information.
+#' @param verbose Boolean flag; if true, outputs timing
+#' and milestone information.
 #' @return Updated version of mixtures_1D.
 #' @examples
-#' fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+#' fileName <- system.file("extdata", "sampled_flowset_old.rda",
+#'                         package = "Tailor")
 #' load(fileName)
 #' tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
 #' mixtures_1D <- get_1D_mixtures(fs_old, tailor_params)
 #'
 #' to_customize <- list("CD127BV421" = 2)
-#' mixtures_1D <- customize_1D_mixtures(fs_old, to_customize, mixtures_1D)
+#' mixtures_1D <- customize_1D_mixtures(fs_old, to_customize,
+#'                                      mixtures_1D)
 #' @export
 customize_1D_mixtures <- function(data, to_customize,
                                  mixtures_1D,
@@ -277,10 +312,11 @@ customize_1D_mixtures <- function(data, to_customize,
   data <- as_matrix(data)
 
   for (param in names(to_customize)) {
-    mixtures_1D$mixtures[[param]] <- get_1D_mixtures_custom(data, param,
-                                                           k=to_customize[[param]],
-                                                           sample_fraction = sample_fraction,
-                                                           verbose = verbose)[[param]]
+    temp <- get_1D_mixtures_custom(data, param,
+                                   k=to_customize[[param]],
+                                   sample_fraction = sample_fraction,
+                                   verbose = verbose)
+    mixtures_1D$mixtures[[param]] <- temp[[param]]
   }
 
   return(mixtures_1D)
@@ -288,16 +324,23 @@ customize_1D_mixtures <- function(data, to_customize,
 
 
 #' @title inspect_1D_mixtures
-#' @description Plot the result of 1D mixture model calculation for visual inspection.
-#' Displays, for each marker, three side-by-side plots, giving a kernel density estimate
-#' for the data and that marker, the Gaussian mixture, and the separate mixture components,
+#' @description Plot the result of 1D mixture model
+#' calculation for visual inspection.
+#' Displays, for each marker, three side-by-side plots,
+#' giving a kernel density estimate
+#' for the data and that marker, the Gaussian mixture,
+#' and the separate mixture components,
 #' respectively.
-#' @param data A flowSet, flowFrame or a matrix containing events along the rows, markers along columns.
-#' @param mixtures_1D 1D mixture models, as produced by get_1D_mixtures.
-#' @param params A list of markers to use; must be subset of colnames(data).
+#' @param data A flowSet, flowFrame or a matrix containing
+#' events along the rows, markers along columns.
+#' @param mixtures_1D 1D mixture models, as produced by
+#' get_1D_mixtures.
+#' @param params A list of markers to use; must be subset
+#' of colnames(data).
 #' @return Side-by-side plots of kdes and mixture components.
 #' @examples
-#' fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+#' fileName <- system.file("extdata", "sampled_flowset_old.rda",
+#'                         package = "Tailor")
 #' load(fileName)
 #' tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
 #' mixtures_1D <- get_1D_mixtures(fs_old, tailor_params)
@@ -312,20 +355,26 @@ inspect_1D_mixtures <- function(data, mixtures_1D, params)
 
   for (param in params)
   {
-    plot_kde_vs_mixture(data, global_kdes, mixtures = mixtures_1D$mixtures, name = param)
+    plot_kde_vs_mixture(data, global_kdes,
+                        mixtures = mixtures_1D$mixtures,
+                        name = param)
   }
 }
 
 
 #' @title categorical_labelling
-#' @description If major phenotype definitions are available (e.g. "CD4 Naive"),
-#' based on only a few of the markers
-#' in the panel, label each categorical cluster by one of these major phenotypes.
+#' @description If major phenotype definitions are available
+#' (e.g. "CD4 Naive"), based on only a few of the markers
+#' in the panel, label each categorical cluster by one of these
+#' major phenotypes.
 #' @param tailor_obj A tailor object, as obtained from tailor.learn.
-#' @param defs A matrix or data frame giving definitions of major phenotypes.
-#' @return The tailor object, with updated information about categorical labels.
+#' @param defs A matrix or data frame giving definitions
+#' of major phenotypes.
+#' @return The tailor object, with updated information
+#' about categorical labels.
 #' @examples
-#' fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+#' fileName <- system.file("extdata", "sampled_flowset_old.rda",
+#'                         package = "Tailor")
 #' load(fileName)
 #' tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
 #' tailor_obj <- tailor_learn(data = fs_old,
@@ -340,7 +389,8 @@ categorical_labeling <- function(tailor_obj, defs)
 {
   n <- length(tailor_obj$cat_clusters$phenotypes)
   params <- colnames(tailor_obj$mixture$mean)
-  tailor_obj$cat_clusters[["labels"]] <- vector(mode = "character", length = n)
+  tailor_obj$cat_clusters[["labels"]] <- vector(mode = "character",
+                                                length = n)
   labs <- rownames(defs)
   nam <- names(defs)
   ind <- vector(mode = "integer", length = length(nam))
@@ -355,8 +405,10 @@ categorical_labeling <- function(tailor_obj, defs)
     for (j in seq(nrow(defs))) {
       match <- TRUE
       for (k in seq(ncol(defs))) {
-        if (defs[j,k] == "hi" & substr(tailor_obj$cat_clusters$phenotypes[i],ind[k],ind[k]) == "-" |
-            defs[j,k] == "lo" & substr(tailor_obj$cat_clusters$phenotypes[i],ind[k],ind[k]) == "+") {
+        if (defs[j,k] == "hi" &
+            substr(tailor_obj$cat_clusters$phenotypes[i],ind[k],ind[k]) == "-" |
+            defs[j,k] == "lo" &
+            substr(tailor_obj$cat_clusters$phenotypes[i],ind[k],ind[k]) == "+") {
           match <- FALSE
         }
       }
@@ -373,9 +425,11 @@ categorical_labeling <- function(tailor_obj, defs)
 #' @title plot_tailor_majpheno
 #' @description Plot a t-SNE reduction to 2d of the cluster centroids.
 #' @param tailor_obj A tailor object, as obtained from tailor.learn.
-#' @return A 2d reduced plot of cluster centroid, color-coded by major phenotype.
+#' @return A 2d reduced plot of cluster centroid,
+#' color-coded by major phenotype.
 #' @examples
-#' fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+#' fileName <- system.file("extdata", "sampled_flowset_old.rda",
+#'                          package = "Tailor")
 #' load(fileName)
 #' tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
 #' tailor_obj <- tailor_learn(data = fs_old,
@@ -414,13 +468,14 @@ plot_tailor_majpheno <- function(tailor_obj)
 
 
 #' @title plot_tailor_fluorescence
-#' @description Plot a t-SNE reduction to 2d of the cluster centroids, color
-#' coded by mean fluorescence intensity for each parameter.
+#' @description Plot a t-SNE reduction to 2d of the cluster centroids,
+#' color-coded by mean fluorescence intensity for each parameter.
 #' @param tailor_obj A tailor object, as obtained from tailor.learn.
 #' @return A grid of 2d reduced plots of cluster centroids, one for each
 #' parameter.
 #' @examples
-#' fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+#' fileName <- system.file("extdata", "sampled_flowset_old.rda",
+#'                        package = "Tailor")
 #' load(fileName)
 #' tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
 #' tailor_obj <- tailor_learn(data = fs_old,
@@ -446,9 +501,9 @@ plot_tailor_fluorescence <- function(tailor_obj)
   plot_list <- list()
   params = colnames(tailor_obj$mixture$mean)
 
-  mfi_amplitudes <- vapply(params, function(x) { max(cen[,x]) - min(cen[,x]) },
-                           numeric(1)  )
-  max_amplitude  <- names(which.max(mfi_amplitudes))
+  mfi_amp <- vapply(params, function(x) { max(cen[,x]) - min(cen[,x]) },
+                    numeric(1)  )
+  max_amplitude  <- names(which.max(mfi_amp))
 
   for (param in params)
   {
@@ -485,11 +540,14 @@ plot_tailor_fluorescence <- function(tailor_obj)
 
 #' @title plot_kdes_global
 #' @description Plot 1D kdes of a dataset for visual inspection.
-#' @param data A flowSet, flowFrame or a matrix containing events along the rows, markers along columns.
-#' @param params A list of markers to use; must be subset of colnames(data).
+#' @param data A flowSet, flowFrame or a matrix containing events
+#' along the rows, markers along columns.
+#' @param params A list of markers to use; must be subset of
+#' colnames(data).
 #' @return Plots of kernel density estimate for each chosen parameter.
 #' @examples
-#' fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+#' fileName <- system.file("extdata", "sampled_flowset_old.rda",
+#'                          package = "Tailor")
 #' load(fileName)
 #' tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
 #' plot_kdes_global(fs_old, tailor_params)
@@ -513,9 +571,6 @@ plot_kdes_global <- function(data, params)
   ncol <- min(5, ceiling(sqrt(length(params))))
   return(gridExtra::grid.arrange(grobs = plot_list, ncol = ncol))
 }
-
-
-
 
 
 

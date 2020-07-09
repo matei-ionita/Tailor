@@ -15,35 +15,46 @@ get_1D_mixtures(
 )
 }
 \arguments{
-\item{data}{A flowSet, flowFrame or a matrix containing events along the rows, markers along columns.}
+\item{data}{A flowSet, flowFrame or a matrix containing
+events along the rows, markers along columns.}
 
-\item{params}{A list of markers to use; must be subset of colnames(data).}
+\item{params}{A list of markers to use; must be subset
+of colnames(data).}
 
-\item{max_mixture}{Will attempt to model each marker as k mixture components, for
-1 <= k <= max_mixture. The best k is chosen based on a modified version of the Bayesian
+\item{max_mixture}{Will attempt to model each marker as
+k mixture components, for
+1 <= k <= max_mixture. The best k is chosen based on a
+modified version of the Bayesian
 Information Criterion (BIC).}
 
-\item{prior_BIC}{Make this larger to favor a smaller number of mixture components.}
+\item{prior_BIC}{Make this larger to favor a smaller
+number of mixture components.}
 
-\item{sample_fraction}{A number between 0 and 1: the fraction of data points used in the
+\item{sample_fraction}{A number between 0 and 1: the
+fraction of data points used in the
 calculation of 1D mixture components, to improve runtime.}
 
-\item{parallel}{Boolean flag; if true, uses multithreading to process markers in parallel.}
+\item{parallel}{Boolean flag; if true, uses multithreading
+to process markers in parallel.}
 
-\item{verbose}{Boolean flag; if true, outputs timing and milestone information.}
+\item{verbose}{Boolean flag; if true, outputs timing and
+milestone information.}
 }
 \value{
-A named list of 1D mixture models, giving mixture proportions, means and variances
-for each marker.
+A named list of 1D mixture models, giving mixture
+proportions, means and variances for each marker.
 }
 \description{
-Computes 1D mixture model for each marker separately, for use in binning step
-of tailor. It is difficult to find settings which work for all datasets. Therefore, it is
-recommended to inspect the results with inspect_1D_mixtures, and run get_1D_mixtures_custom
+Computes 1D mixture model for each marker
+separately, for use in binning step of tailor. It is
+difficult to find settings which work for all datasets.
+Therefore, it is recommended to inspect the results with
+inspect_1D_mixtures, and run get_1D_mixtures_custom
 for problematic markers.
 }
 \examples{
-fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+fileName <- system.file("extdata", "sampled_flowset_old.rda",
+                        package = "Tailor")
 load(fileName)
 tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
 mixtures_1D <- get_1D_mixtures(fs_old, tailor_params)

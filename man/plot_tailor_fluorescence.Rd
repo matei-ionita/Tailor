@@ -14,11 +14,12 @@ A grid of 2d reduced plots of cluster centroids, one for each
 parameter.
 }
 \description{
-Plot a t-SNE reduction to 2d of the cluster centroids, color
-coded by mean fluorescence intensity for each parameter.
+Plot a t-SNE reduction to 2d of the cluster centroids,
+color-coded by mean fluorescence intensity for each parameter.
 }
 \examples{
-fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+fileName <- system.file("extdata", "sampled_flowset_old.rda",
+                       package = "Tailor")
 load(fileName)
 tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
 tailor_obj <- tailor_learn(data = fs_old,

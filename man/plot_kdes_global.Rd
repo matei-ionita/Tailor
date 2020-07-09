@@ -7,9 +7,11 @@
 plot_kdes_global(data, params)
 }
 \arguments{
-\item{data}{A flowSet, flowFrame or a matrix containing events along the rows, markers along columns.}
+\item{data}{A flowSet, flowFrame or a matrix containing events
+along the rows, markers along columns.}
 
-\item{params}{A list of markers to use; must be subset of colnames(data).}
+\item{params}{A list of markers to use; must be subset of
+colnames(data).}
 }
 \value{
 Plots of kernel density estimate for each chosen parameter.
@@ -18,7 +20,8 @@ Plots of kernel density estimate for each chosen parameter.
 Plot 1D kdes of a dataset for visual inspection.
 }
 \examples{
-fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+fileName <- system.file("extdata", "sampled_flowset_old.rda",
+                         package = "Tailor")
 load(fileName)
 tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
 plot_kdes_global(fs_old, tailor_params)

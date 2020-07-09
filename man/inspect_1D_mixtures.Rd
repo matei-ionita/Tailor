@@ -7,23 +7,30 @@
 inspect_1D_mixtures(data, mixtures_1D, params)
 }
 \arguments{
-\item{data}{A flowSet, flowFrame or a matrix containing events along the rows, markers along columns.}
+\item{data}{A flowSet, flowFrame or a matrix containing
+events along the rows, markers along columns.}
 
-\item{mixtures_1D}{1D mixture models, as produced by get_1D_mixtures.}
+\item{mixtures_1D}{1D mixture models, as produced by
+get_1D_mixtures.}
 
-\item{params}{A list of markers to use; must be subset of colnames(data).}
+\item{params}{A list of markers to use; must be subset
+of colnames(data).}
 }
 \value{
 Side-by-side plots of kdes and mixture components.
 }
 \description{
-Plot the result of 1D mixture model calculation for visual inspection.
-Displays, for each marker, three side-by-side plots, giving a kernel density estimate
-for the data and that marker, the Gaussian mixture, and the separate mixture components,
+Plot the result of 1D mixture model
+calculation for visual inspection.
+Displays, for each marker, three side-by-side plots,
+giving a kernel density estimate
+for the data and that marker, the Gaussian mixture,
+and the separate mixture components,
 respectively.
 }
 \examples{
-fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+fileName <- system.file("extdata", "sampled_flowset_old.rda",
+                        package = "Tailor")
 load(fileName)
 tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
 mixtures_1D <- get_1D_mixtures(fs_old, tailor_params)
