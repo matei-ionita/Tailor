@@ -23,37 +23,53 @@
 NULL
 
 #' @title tailor_learn
-#' @description This function learns a tailor model from input data. It
-#' computes a preliminary binning of the data, then computes a mixture model using
-#' a weighted version of the expectation-maximization (EM) algorithm,
-#' and finally merges mixture components which are positive/negative for the same
-#' markers, using adaptive thresholds.
-#' @param data A flowSet, flowFrame or a matrix containing events along the rows, markers along columns.
-#' @param params A list of markers to use; must be subset of colnames(data).
-#' @param mixture_components The number of mixture components to learn. Some of these
-#' are eventually merged, so it's a good idea to choose a number slightly larger than
+#' @description This function learns a tailor model from input
+#' data. It computes a preliminary binning of the data, then
+#' computes a mixture model using a weighted version of the
+#' expectation-maximization (EM) algorithm,
+#' and finally merges mixture components which are positive/negative
+#' for the same markers, using adaptive thresholds.
+#' @param data A flowSet, flowFrame or a matrix containing
+#' events along the rows, markers along columns.
+#' @param params A list of markers to use; must be subset of
+#' colnames(data).
+#' @param mixture_components The number of mixture
+#' components to learn. Some of these
+#' are eventually merged, so it's a good idea to
+#' choose a number slightly larger than
 #' the number of clusters you expect to get.
-#' @param min_bin_size Bins with fewer events than this threshold are considered outliers, and are
-#' ignored during the weighted EM algorithm. These events can still be assigned to clusters during
+#' @param min_bin_size Bins with fewer events than this threshold
+#' are considered outliers, and are
+#' ignored during the weighted EM algorithm. These events can
+#' still be assigned to clusters during
 #' the prediction phase.
-#' @param max_bin_size Bins with more events than this threshold are split, to ensure that the
-#' weighted EM algorithm closely approximates a run of vanilla EM on the entire dataset.
-#' @param mixtures_1D Pre-computed 1D mixture models, to be used for binning.
+#' @param max_bin_size Bins with more events than this threshold
+#' are split, to ensure that the
+#' weighted EM algorithm closely approximates a run of vanilla
+#' EM on the entire dataset.
+#' @param mixtures_1D Pre-computed 1D mixture models,
+#'  to be used for binning.
 #' These are computed from scratch if not provided.
-#' @param parallel Boolean flag; if true, uses multithreading to speed up computation.
-#' @param verbose If > 0, outputs milestone information. If >=1, also outputs information about
+#' @param parallel Boolean flag; if true, uses multithreading
+#' to speed up computation.
+#' @param verbose If > 0, outputs milestone information.
+#' If >=1, also outputs information about
 #' running utilities. If >1, debugging mode.
 #' @return A tailor object containing:
 #' \describe{
-#'   \item{fit}{The tailor model, a named list containing the mixture proportions, means and variances
+#'   \item{fit}{The tailor model, a named list containing
+#'   the mixture proportions, means and variances
 #'   of all mixture components.}
 #'   \item{mixtures_1D}{}
-#'   \item{cat_clusters}{A named list containing information about the categorical clusters found by
-#'   the model: phenotype, cluster centers, and a mapping from mixture components to categorical clusters.}
+#'   \item{cat_clusters}{A named list containing information
+#'   about the categorical clusters found by
+#'   the model: phenotype, cluster centers, and a mapping
+#'   from mixture components to categorical clusters.}
 #' }
 #' @examples
 #' # Load data and define analytical parameters
-#' fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+#' fileName <- system.file("extdata", "sampled_flowset_old.rda",
+#'                         package = "Tailor")
 #' load(fileName)
 #' tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
 #'
@@ -72,12 +88,10 @@ NULL
 #'                           mixture_components = 50,
 #'                           mixtures_1D = mixtures_1D)
 #' @export
-tailor_learn <- function(data, params = NULL,
+tailor_learn <- function(data, params = NULL, mixtures_1D = NULL,
                         mixture_components = 200,
                         min_bin_size = NULL, max_bin_size = NULL,
-                        mixtures_1D = NULL,
-                        parallel = FALSE,
-                        verbose = 0.5)
+                        parallel = FALSE, verbose = 0.5)
 {
   data <- as_matrix(data)
   if (is.null(params)) params <- colnames(data)
@@ -104,23 +118,19 @@ tailor_learn <- function(data, params = NULL,
 
   if (verbose > 0) print("Weighted subsampling...")
   wsub <- get_weighted_subsample(data, phenobin_summary, params,
-                                               min_bin_size, max_bin_size, verbose)
+                                 min_bin_size, max_bin_size, verbose)
   init_mixture <- get_init(data, phenobin_summary, params,
                            min_bin_size, mixture_components, verbose)
 
   if (verbose > 0) { print("Running bulk mixture model...")}
-  mixture <- bulk_weighted_gmm(data = wsub$means,
-                          k = mixture_components,
-                          params = params,
-                          weights = wsub$sizes,
-                          mixture = init_mixture,
+  mixture <- bulk_weighted_gmm(data = wsub$means, k = mixture_components,
+                          params = params, weights = wsub$sizes,
                           variance_correction = wsub$variances,
-                          verbose = (verbose >= 1))
+                          mixture = init_mixture, verbose = (verbose >= 1))
 
   if(verbose > 0) print("Categorical merging...")
   cutoffs <- get_1D_cutoffs(mixtures_1D$mixtures, mixtures_1D$to_merge, params)
-  cat_clusters <- categorical_merging(mixture$pro,
-                             mixture$mean, cutoffs, params)
+  cat_clusters <- categorical_merging(mixture$pro, mixture$mean, cutoffs, params)
 
   tailor_obj <- list("mixture" = mixture, "mixtures_1D" = mixtures_1D,
                      "cat_clusters" = cat_clusters)

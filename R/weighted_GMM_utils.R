@@ -37,11 +37,9 @@
 #                   component j
 ################################################################################
 
-bulk_weighted_gmm <- function(data, k, params, weights = NULL,
-                             mixture = NULL,
+bulk_weighted_gmm <- function(data, k, params, weights = NULL, mixture = NULL,
                              regularize_variance = TRUE, variance_correction = NULL,
-                             max_steps = 10,
-                             relative_loglik_threshold = 5e-3,
+                             max_steps = 10, relative_loglik_threshold = 5e-3,
                              verbose = FALSE)
 {
   n <- nrow(data)
@@ -52,9 +50,7 @@ bulk_weighted_gmm <- function(data, k, params, weights = NULL,
     mixture$pro <- mixture$pro / sum(mixture$pro)
   }
 
-  if (is.null(weights)) {
-    weights <- rep(1, n)
-  }
+  if (is.null(weights)) { weights <- rep(1, n) }
   sum_weights = sum(weights)
   weights <- weights / sum_weights
 
@@ -86,9 +82,7 @@ bulk_weighted_gmm <- function(data, k, params, weights = NULL,
         mixture <- correct_variances(mixture, variance_correction, event_probabilities, weights, verbose)
       }
       break
-    } else {
-      event_probabilities <- e_step_result$probs
-    }
+    } else { event_probabilities <- e_step_result$probs }
   }
 
   return(mixture)

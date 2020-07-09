@@ -105,7 +105,7 @@ get_tsne_clusters <- function(tailor_obj)
 get_legend <- function(my_plot)
 {
   tmp <- ggplot_gtable(ggplot_build(my_plot))
-  leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
+  leg <- which(vapply(tmp$grobs, function(x) x$name, character(1)) == "guide-box")
   legend <- tmp$grobs[[leg]]
   return(legend)
 }

@@ -24,7 +24,6 @@ get_weighted_subsample <- function(data, phenobin_summary, params,
                                             params = params,
                                             selected = populous,
                                             split_threshold = max_bin_size,
-                                            compute_var = TRUE,
                                             verbose = (verbose >= 1))
 
   return(weighted_subsample)
@@ -51,7 +50,6 @@ get_init <- function(data, phenobin_summary, params,
                                         params = params,
                                         selected = populous,
                                         split_threshold = NULL,
-                                        compute_var = TRUE,
                                         verbose = (verbose >= 1))
 
 
@@ -90,13 +88,9 @@ get_init <- function(data, phenobin_summary, params,
 #             slices are variances of events in a box
 ################################################################################
 
-find_phenobin_mean <- function(data, predictions,
-                              bins, sizes,
-                              params, selected,
-                              split_threshold = NULL,
-                              compute_var = FALSE,
-                              parallel = FALSE,
-                              verbose = FALSE)
+find_phenobin_mean <- function(data, predictions, bins, sizes, params,
+                               selected, split_threshold = NULL,
+                               parallel = FALSE, verbose = FALSE)
 {
   n <- nrow(data)
   k <- length(bins)
@@ -129,21 +123,16 @@ find_phenobin_mean <- function(data, predictions,
       means[c(start:(start + n_repr[i]-1)),] <- km$centers
     }
 
-    if (compute_var) {
-      bin_info <- compute_bin_variance(data, sel, n_repr[i], start, km,
+    bin_info <- compute_bin_variance(data, sel, n_repr[i], start, km,
                                        sizes[i], variances, split_box_sizes)
-      variances <- bin_info$variances
-      split_box_sizes <- bin_info$sizes
-    }
+    variances <- bin_info$variances
+    split_box_sizes <- bin_info$sizes
+
     start <- start + n_repr[i]
   }
 
-  if (compute_var) {
-    l <- list("means" = means, "variances" = variances,
-              "n_repr" = n_repr, "sizes" = split_box_sizes)
-  } else {
-    l <- list("means" = means, "n_repr" = n_repr, "sizes" = split_box_sizes)
-  }
+  l <- list("means" = means, "variances" = variances,
+            "n_repr" = n_repr, "sizes" = split_box_sizes)
   return(l)
 }
 
@@ -281,8 +270,7 @@ map_1D_parallel <- function(data, mixtures, to_merge)
 
   data_param <- NULL
   mapping <- foreach(data_param = iter(data, by='col'),
-                     .combine = cbind, .packages = c("mvtnorm")) %dopar%
-  {
+                     .combine = cbind, .packages = c("mvtnorm")) %dopar% {
     param <- colnames(data_param)[1]
     mixture <- mixtures[[param]]
     k <- length(mixture$pro)
@@ -297,12 +285,10 @@ map_1D_parallel <- function(data, mixtures, to_merge)
         sum_base <- to_merge[[param]][1]
         to_sum <- to_merge[[param]][c(2:n_small)]
       }
-
       probs <- matrix(0, nrow = n, ncol = k - length(to_sum))
       summed <- 0
 
       for (i in seq(k)) {
-        # If class i is to be merged with class sum_base, add the probabilities
         if (i %in% to_sum) {
           summed <- summed + 1
           probs[,sum_base] <- probs[,sum_base] + mixture$pro[i] * dnorm(data_param, mean = mixture$mean[i],
@@ -424,10 +410,8 @@ get_1D_mixtures_default <- function(data, params, parallel, verbose)
 }
 
 
-get_1D_mixtures_custom <- function(data, params, k = 3,
-                                  sample_fraction = 0.2,
-                                  separate_neg = FALSE,
-                                  verbose = FALSE)
+get_1D_mixtures_custom <- function(data, params, k = 3, sample_fraction = 0.2,
+                                  separate_neg = FALSE, verbose = FALSE)
 {
   fit_list <- list()
 
