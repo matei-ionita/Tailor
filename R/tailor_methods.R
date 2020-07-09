@@ -360,7 +360,7 @@ categorical_labeling <- function(tailor_obj, defs)
 }
 
 
-#' @title plot_tsne_clusters
+#' @title plot_tailor_majpheno
 #' @description Plot a t-SNE reduction to 2d of the cluster centroids.
 #' @param tailor_obj A tailor object, as obtained from tailor.learn.
 #' @return A 2d reduced plot of cluster centroid, color-coded by major phenotype.
@@ -376,9 +376,9 @@ categorical_labeling <- function(tailor_obj, defs)
 #'                  row.names = 1, stringsAsFactors = FALSE)
 #' tailor_obj <- categorical_labeling(tailor_obj, defs)
 #'
-#' plot_tsne_clusters(tailor_obj)
+#' plot_tailor_majpheno(tailor_obj)
 #' @export
-plot_tsne_clusters <- function(tailor_obj)
+plot_tailor_majpheno <- function(tailor_obj)
 {
   pro <- tailor_obj$mixture$pro
   map <- tailor_obj$cat_clusters$mixture_to_cluster
@@ -387,12 +387,14 @@ plot_tsne_clusters <- function(tailor_obj)
   res$phenotype <- as.factor(tailor_obj$cat_clusters$labels)
 
   cluster_ids <- seq_len(nrow(tailor_obj$cat_clusters$centers))
-  res$logsize <- log(sapply(cluster_ids,
-                            function(x) { sum(pro[which(map == x)]) }))
+  res$logsize <- log(vapply(cluster_ids,
+                            function(x) { sum(pro[which(map == x)]) },
+                            numeric(1) ))
   res$logsize <- res$logsize * 9 / mean(res$logsize)
 
   g <- ggplot(res, aes(x=.data$tsne_1, y=.data$tsne_2)) +
-    geom_point(aes(color = .data$phenotype, size = .data$logsize)) +
+    geom_point(aes(color = .data$phenotype, size = .data$logsize),
+               alpha = 0.8) +
     scale_color_brewer(palette = "Paired") +
     guides(size = FALSE)
 
@@ -426,14 +428,16 @@ plot_tailor_fluorescence <- function(tailor_obj)
   res <- get_tsne_clusters(tailor_obj)
 
   cluster_ids <- seq_len(nrow(tailor_obj$cat_clusters$centers))
-  res$logsize <- log(sapply(cluster_ids,
-                            function(x) { sum(pro[which(map == x)]) }))
+  res$logsize <- log(vapply(cluster_ids,
+                            function(x) { sum(pro[which(map == x)]) },
+                            numeric(1) ))
   res$logsize <- res$logsize * 7 / mean(res$logsize)
 
   plot_list <- list()
   params = colnames(tailor_obj$mixture$mean)
 
-  mfi_amplitudes <- sapply(params, function(x) { max(cen[,x]) - min(cen[,x]) } )
+  mfi_amplitudes <- vapply(params, function(x) { max(cen[,x]) - min(cen[,x]) },
+                           numeric(1)  )
   max_amplitude  <- names(which.max(mfi_amplitudes))
 
   for (param in params)
@@ -447,7 +451,13 @@ plot_tailor_fluorescence <- function(tailor_obj)
                                                    direction = "horizontal",
                                                    title.position = "top")) +
       ggtitle(param) +
-      guides(size = FALSE)
+      guides(size = FALSE) +
+      theme(axis.title.x=element_blank(),
+            axis.text.x=element_blank(),
+            axis.ticks.x=element_blank(),
+            axis.title.y=element_blank(),
+            axis.text.y=element_blank(),
+            axis.ticks.y=element_blank())
 
     if (param == max_amplitude) { color_legend <- get_legend(g) }
 
@@ -457,92 +467,6 @@ plot_tailor_fluorescence <- function(tailor_obj)
   plot_list[["legend"]] <- color_legend
 
   ncol <- ceiling(sqrt(length(plot_list)))
-  return(gridExtra::grid.arrange(grobs = plot_list, ncol = ncol))
-}
-
-
-
-#' @title plot_tsne_global
-#' @description Subsample the entire dataset, and compute a 2D t-SNE embedding.
-#' Plot the embedding twice, color coded by cluster membership and major phenotype, respectively.
-#' @param data A flowSet, flowFrame or a matrix containing events along the rows, markers along columns.
-#' @param tailor_obj A tailor object, as obtained from tailor.learn.
-#' @param tailor_pred A list of cluster assignments, as obtained from tailor.predict.
-#' @param defs Definitions of major phenotypes.
-#' @return 2d embeddings, color-coded by cluster membershi and major phenotype.
-#' @export
-plot_tsne_global <- function(data, tailor_obj, tailor_pred, defs)
-{
-  data = as_matrix(data)
-  n_items <- nrow(data)
-
-  params <- colnames(tailor_obj$mixture$mean)
-
-  # Subsample, because t-SNE is slow
-  if (n_items > 1e4)
-  {
-    sel <- sample(n_items, 1e4)
-  } else
-  {
-    sel <- seq_len(n_items)
-  }
-  data <- data[sel,params]
-  perplexity <- min((length(sel) - 1)/3, 30)
-
-  # Learn t-SNE embedding and add column for cluster membership
-  tsne <- Rtsne(data, perplexity = perplexity)$Y
-  colnames(tsne) <- c("tsne_1", "tsne_2")
-  tsne <- data.frame(tsne)
-  tsne$cluster <- tailor_pred$cluster_mapping[sel]
-  tsne$cluster_pheno <- as.factor(tailor_obj$cat_clusters$labels[tsne$cluster])
-  tsne$cluster <- as.factor(tsne$cluster)
-
-  # Decide on major phenotype of each subsampled data point
-  cutoffs <- get_1D_cutoffs(tailor_obj$mixtures_1D$mixtures, tailor_obj$mixtures_1D$to_merge,
-                           params)
-  data_cut <- data
-  for (param in params) {
-    cutoff <- cutoffs[[param]]
-    data_cut[,param] <- "hi"
-    data_cut[which(data[,param] < cutoff), param] <- "lo"
-  }
-
-  phenotype <- character(length = length(sel))
-  phenotype[seq_len(length(sel))] <- "Other"
-  for (pheno in rownames(defs)) {
-    relevant <- names(defs)[which(defs[pheno,] != "dc")]
-    data_relevant <- data_cut[,relevant]
-    phenotype[which( apply(data_relevant, 1,
-                           function(x) identical(as.character(x),
-                                                 as.character(defs[pheno,relevant]))))] <- pheno
-  }
-
-  tsne$phenotype <- as.factor(phenotype)
-
-  g <- ggplot(tsne[which(tsne$phenotype != "Other"),],
-             aes(x=.data$tsne_1, y=.data$tsne_2, color = .data$phenotype)) +
-      geom_point(alpha = 0.35)
-
-  print(g)
-
-  xlim <- ggplot_build(g)$layout$panel_scales_x[[1]]$range$range
-  ylim <- ggplot_build(g)$layout$panel_scales_y[[1]]$range$range
-
-  plot_list <- list()
-  majphenos <- levels(tsne$cluster_pheno)
-
-  for (majpheno in majphenos) {
-    sel <- which(tsne$cluster_pheno == majpheno)
-    g <- ggplot(tsne[sel,], aes(x=.data$tsne_1, y=.data$tsne_2)) +
-      geom_point(aes(color = .data$cluster), alpha = 0.35) +
-      scale_x_continuous(limits = xlim) +
-      scale_y_continuous(limits = ylim) +
-      labs(title = majpheno, x = "", y = "")
-
-    plot_list[[majpheno]] <- g
-  }
-
-  ncol <- ceiling(sqrt(length(majphenos)))
   return(gridExtra::grid.arrange(grobs = plot_list, ncol = ncol))
 }
 

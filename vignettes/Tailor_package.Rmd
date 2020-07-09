@@ -30,7 +30,7 @@ The Tailor package contains methods that accomplish three purposes:
 
 * predicting the most likely cluster membership for a batch of data: `tailor_predict()`
 
-* visualization: `inspect_1D_mixtures()`, `plot_tsne_clusters()`, `plot_tsne_global()`
+* visualization: `plot_tailor_majpheno()`, `plot_tailor_fluorescence()`, `inspect_1D_mixtures()`
 
 
 ## Default workflow
@@ -59,6 +59,14 @@ tailor_obj <- tailor_learn(data = data,
                           mixture_components = n_components)
 ```
 
+Tailor attempts to model the data with the user-specified number of mixture components. The number of clusters you eventually obtain is likely to be smaller, for two reasons:
+
+* Some mixture components are dropped at initialization stage, if they contain too few events. The user is warned when this happens.
+
+* Some mixture components are merged into the same categorical cluster; more details below.
+
+Because of this, we recommend overestimating, rather than underestimating `mixture_components`.
+
 The `mixture` field of the Tailor object contains information about the 50 mixture components used to model the data.
 `mixture$pro`, `mixture$means` and `mixture$variance$sigma` contain the mixture proportions, means and variances, respectively.
 For example, below we access the mixture proportion and mean of the first mixture component. We can see that this is a large component, containing around 12% of the data, and consists of macrophages, as shown by the high CD14 and CD11 expression.
@@ -78,7 +86,9 @@ head(tailor_obj$cat_clusters$centers)
 tailor_obj$cat_clusters$mixture_to_cluster
 ```
 
-If available, load a file containing definitions of major phenotypes (e.g. Naive CD4 T cell, Macrophage). We can use this to enhance the Tailor object, labeling each categorical cluster by a major phenotype.
+If available, load a file containing definitions of major phenotypes (e.g. Naive CD4 T cell, Macrophage). You need to provide a relative measure of fluorescence intensity: "lo", "hi", "dc"(= "don't care"), and Tailor chooses thresholds adaptively based on the data.
+
+We can use this to enhance the Tailor object, labeling each categorical cluster by a major phenotype.
 
 ```{r categorical_labeling}
 defsfile <- system.file("extdata", "pheno_definitions.csv", package = "Tailor")
@@ -97,14 +107,19 @@ tailor_pred <- tailor_predict(data = data,
 
 `tailor_predict()` returns two lists. `$mixture_mapping` assigns each datapoint to a mixture component. `$cluster_mapping` assigns each datapoint to a categorical cluster.
 
-Use `plot_tsne_clusters()` to view a t-SNE embedding to 2D of the categorical cluster centroids. They are color-coded by major phenotype, and the size of the dots depends logarithmically on cluster size.
+Use `plot_tailor_majpheno()` to view a t-SNE embedding to 2D of the categorical cluster centroids. They are color-coded by major phenotype, and the size of the dots depends logarithmically on cluster size.
 
 ```{r tailor_plot_clusters, fig.align= "center", fig.width=6, fig.height=4}
-plot_tsne_clusters(tailor_obj, tailor_pred)
+set.seed(525)
+plot_tailor_majpheno(tailor_obj)
 ```
 
+Alternatively, plot the same t-SNE embeddings, color-coded by (bi-exponentially transformed) mean fluorescence intensity of the cluster. 
 
-
+```{r tailor_plot_mfi, fig.align= "center", fig.width=9, fig.height=7}
+set.seed(525) # use the same seed as above, so figures can be compared
+plot_tailor_fluorescence(tailor_obj)
+```
 
 ## Advanced workflow
 
@@ -118,17 +133,15 @@ mixtures_1D <- get_1D_mixtures(data, tailor_params,
 inspect_1D_mixtures(data, mixtures_1D, tailor_params)
 ```
 
-Most of the 1D models look reasonable. But for CCR7, it would be better to use two mixture components instead of one. Similarly, for CD27 it would be better to use three mixture components instead of two.
+Most of the 1D models look reasonable. But say that we wanted to model CD127 as two mixture components instead of one. We can use the method `customize_1D_mixtures()` to update a user-specified list of parameters. Compare the result to the previous 1-component model for CD127 above.
 
 ```{r customize_1D_mixtures, fig.width=8, fig.height=4}
-# to_customize <- list("CCR7PECY7" = 2, "CD27AF700" = 3)
-to_customize <- list("CD127BV421" = 2)
+to_customize <- list("CD127BV421" = 2) # model CD127 with 2 mixture components
 mixtures_1D <- customize_1D_mixtures(data, to_customize, mixtures_1D, verbose = TRUE)
 inspect_1D_mixtures(data, mixtures_1D, names(to_customize))
 ```
 
-That looks better.
-We can pass the 1D mixtures as an argument to `tailor_learn()`, and they will be used in the binning process. We can also specify some 1D mixture components that should be merged in the same bin, if we have grounds to believe that they represent the same biological population.
+We can pass the 1D mixtures created above as an argument to `tailor_learn()`, and they will be used in the binning process. We can also specify some 1D mixture components that should be merged in the same bin, if we have grounds to believe that they represent the same biological population.
 
 ```{r learn_advanced}
 # mixtures_1D$to_merge <- list("CD11BAPCCY7"= c(1,2), "CD45RAQ655" = c(1,2), "CD27AF700" = c(2,3))
@@ -146,14 +159,15 @@ tailor_pred <- tailor_predict(data = data,
 We can visualize the t-SNE embeddings of the new categorical clusters.
 
 ```{r tailor_plot_clusters_advanced, fig.align= "center", fig.width=6, fig.height=4}
-plot_tsne_clusters(tailor_obj, tailor_pred)
+set.seed(525)
+plot_tailor_majpheno(tailor_obj)
 ```
 
-Finally, we can visualize the Tailor categorical clusters in a t-SNE embedding of the original data (or a uniform sample thereof, to speed up computation). The method `plot_tsne_global()` first displays the t-SNE embedding color-coded by major phenotype. Then it picks Tailor clusters, in groups of at most seven, and plots only those datapoints belonging to the chosen clusters. This should aid in visualizing the correspondence between Tailor clusters and major phenotypes. Note that there's no reason to expect the t-SNE embedding to agree with the Tailor clusters: t-SNE and Tailor are very different algorithms, which highlight different features in the data.
-
-```{r global_tsne, fig.align= "center", fig.width=12, fig.height=8}
-plot_tsne_global(data, tailor_obj, tailor_pred, defs)
+```{r tailor_plot_fluorescence_advanced, fig.align="center", fig.width=9, fig.height=7}
+set.seed(525)
+plot_tailor_fluorescence(tailor_obj)
 ```
+
 
 ## Remarks
 
