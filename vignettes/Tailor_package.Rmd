@@ -4,7 +4,7 @@ author: "Matei Ionita"
 date: "6/21/2020"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Tailor}
+  %\VignetteIndexEntry{Tailor package}
   %\VignetteEngine{knitr::rmarkdown}
   \usepackage[utf8]{inputenc}
 ---
