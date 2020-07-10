@@ -16,11 +16,38 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Introduction
 
-In recent years there have been many proposals for clustering approaches in the study of flow cytometry data. Tailor implements a clustering workflow based on Gaussian mixture modeling, motivated by the ability of this approach to identify distinct cell populations which show up as the tail of a unimodal distribution. In contrast, many existing clustering approaches would consider such tails as noise, and consider the entire unimodal distribution as a single population.
+In recent years there have been many proposals for clustering approaches in the study of flow cytometry data. 
+Tailor implements a clustering workflow based on Gaussian mixture modeling, motivated by the ability of this 
+approach to identify distinct cell populations which show up as the tail of a unimodal distribution. 
+In contrast, many existing clustering approaches would consider such tails as noise, and consider the 
+entire unimodal distribution as a single population. 
 
-TO DO: show picture here.
+See, for example, the case of pD1 in the
+example dataset. The leftmost panel shows a kernel density estimate of the global pD1 distribution,
+exhibiting the tail behavior described above. The rightmost panel shows how Tailor models this data
+as a mixture of two Gaussian components. The middle panel shows the mixed distribution, which closely
+approximates the original density estimate.
 
-In general, Gaussian mixture modeling has two disadvantages: slow runtime, and sensitivity to initialization. Tailor mitigates both of these with the help of a preliminary binning step before the main mixture modeling algorithm (see section on Advanced workflow for details). The main algorithm is run on a sample of representatives from all bins; the choice of these representatives should be thought of as a density-dependent subsampling of the data. Moreover, the mixture components are initialized with mean equal to the mean of the largest bins, ensuring an initialization which captures most of the biologically interesting variation within the data.
+```{r fig_tail, fig.width=8, fig.height=4, echo=FALSE}
+library(Tailor)
+fileName <- system.file("extdata", "sampled_flowset_old.rda", package = "Tailor")
+load(fileName)   # fs_old
+data <- fs_old[[4]]
+
+param <- flowCore::colnames(fs_old)[19]
+tailor_params <- flowCore::colnames(fs_old)[c(19, 20)]
+mixtures_1D <- get_1D_mixtures(data, tailor_params, max_mixture = 2)
+
+inspect_1D_mixtures(data, mixtures_1D, param)
+```
+
+In general, Gaussian mixture modeling has two disadvantages: slow runtime, and sensitivity to initialization. 
+Tailor mitigates both of these with the help of a preliminary binning step before the main mixture modeling 
+algorithm (see section on Advanced workflow for details). The main algorithm is run on a sample of 
+representatives from all bins; the choice of these representatives should be thought of as a 
+density-dependent subsampling of the data. Moreover, the mixture components are initialized with mean 
+equal to the mean of the largest bins, ensuring an initialization which captures most of the 
+biologically interesting variation within the data.
 
 
 ## Summary
@@ -34,7 +61,9 @@ The Tailor package contains methods that accomplish three purposes:
 
 
 ## Default workflow
-Some preparations: load the package, some data, choose the parameters to be used in the clustering analysis, and choose a seed for the random generator. For a quick peek at the dataset, plot a kernel density estimate for each parameter.
+Some preparations: load the package, some data, choose the parameters to be used in the 
+clustering analysis, and choose a seed for the random generator. For a quick peek at the dataset, 
+plot a kernel density estimate for each parameter.
 
 ```{r preparations, fig.align = "center", fig.width=8, fig.height=5}
 library(Tailor)
@@ -49,7 +78,8 @@ plot_kdes_global(data, tailor_params)
 ```
 
 
-The simplest way to learn a Tailor model is to feed the data directly to the `tailor_learn()` method. (See the Advanced workflow section below for more complex options.)
+The simplest way to learn a Tailor model is to feed the data directly to the `tailor_learn()` 
+method. (See the Advanced workflow section below for more complex options.)
 
 ```{r tailor_vanilla}
 n_components <- 50
@@ -59,24 +89,32 @@ tailor_obj <- tailor_learn(data = data,
                           mixture_components = n_components)
 ```
 
-Tailor attempts to model the data with the user-specified number of mixture components. The number of clusters you eventually obtain is likely to be smaller, for two reasons:
+Tailor attempts to model the data with the user-specified number of mixture components. 
+The number of clusters you eventually obtain is likely to be smaller, for two reasons:
 
-* Some mixture components are dropped at initialization stage, if they contain too few events. The user is warned when this happens.
+* Some mixture components are dropped at initialization stage, if they contain too few events. 
+The user is warned when this happens.
 
 * Some mixture components are merged into the same categorical cluster; more details below.
 
 Because of this, we recommend overestimating, rather than underestimating `mixture_components`.
 
-The `mixture` field of the Tailor object contains information about the 50 mixture components used to model the data.
-`mixture$pro`, `mixture$means` and `mixture$variance$sigma` contain the mixture proportions, means and variances, respectively.
-For example, below we access the mixture proportion and mean of the first mixture component. We can see that this is a large component, containing around 12% of the data, and consists of macrophages, as shown by the high CD14 and CD11 expression.
+The `mixture` field of the Tailor object contains information about the 50 mixture components 
+used to model the data.
+`mixture$pro`, `mixture$means` and `mixture$variance$sigma` contain the mixture proportions, 
+means and variances, respectively.
+For example, below we access the mixture proportion and mean of the first mixture component. 
+We can see that this is a large component, containing around 35% of the data, and consists of 
+helper T cells, as shown by the high CD3 and CD4 expression.
 
 ```{r tailor_mixture}
 tailor_obj$mixture$pro[1]
 tailor_obj$mixture$mean[1,]
 ```
 
-Tailor clusters, also called categorical clusters, are unions of two or more mixture components which have similar expression for all parameters. Information about categorical clusters can be found in the `cat_clusters` field of the Tailor object.
+Tailor clusters, also called categorical clusters, are unions of two or more mixture components 
+which have similar expression for all parameters. Information about categorical clusters can 
+be found in the `cat_clusters` field of the Tailor object.
 
 ```{r tailor_categorical}
 head(tailor_obj$cat_clusters$phenotypes)
@@ -86,7 +124,9 @@ head(tailor_obj$cat_clusters$centers)
 tailor_obj$cat_clusters$mixture_to_cluster
 ```
 
-If available, load a file containing definitions of major phenotypes (e.g. Naive CD4 T cell, Macrophage). You need to provide a relative measure of fluorescence intensity: "lo", "hi", "dc"(= "don't care"), and Tailor chooses thresholds adaptively based on the data.
+If available, load a file containing definitions of major phenotypes (e.g. Naive CD4 T cell, Macrophage). 
+You need to provide a relative measure of fluorescence intensity: "lo", "hi", "dc"(= "don't care"), 
+and Tailor chooses thresholds adaptively based on the data.
 
 We can use this to enhance the Tailor object, labeling each categorical cluster by a major phenotype.
 
@@ -98,7 +138,9 @@ defs
 tailor_obj <- categorical_labeling(tailor_obj, defs)
 ```
 
-Given the Tailor object computed with `tailor_learn()`, we can use `tailor_predict()` to assign cluster membership to data. In this example, we use the same data that was used in the learning step. But `tailor_predict()` can be used just as well with new data.
+Given the Tailor object computed with `tailor_learn()`, we can use `tailor_predict()` to assign 
+cluster membership to data. In this example, we use the same data that was used in the learning step. 
+But `tailor_predict()` can be used just as well with new data.
 
 ```{r tailor_predict}
 tailor_pred <- tailor_predict(data = data,
@@ -107,24 +149,34 @@ tailor_pred <- tailor_predict(data = data,
 
 `tailor_predict()` returns two lists. `$mixture_mapping` assigns each datapoint to a mixture component. `$cluster_mapping` assigns each datapoint to a categorical cluster.
 
-Use `plot_tailor_majpheno()` to view a t-SNE embedding to 2D of the categorical cluster centroids. They are color-coded by major phenotype, and the size of the dots depends logarithmically on cluster size.
+Use `plot_tailor_majpheno()` to view a t-SNE embedding to 2D of the categorical cluster centroids. 
+They are color-coded by major phenotype, and the size of the dots depends logarithmically on cluster size.
 
 ```{r tailor_plot_clusters, fig.align= "center", fig.width=6, fig.height=4}
 set.seed(525)
 plot_tailor_majpheno(tailor_obj)
 ```
 
-Alternatively, plot the same t-SNE embeddings, color-coded by (bi-exponentially transformed) mean fluorescence intensity of the cluster. 
+Alternatively, plot the same t-SNE embeddings, color-coded by (bi-exponentially transformed) mean 
+fluorescence intensity of the cluster. 
 
-```{r tailor_plot_mfi, fig.align= "center", fig.width=9, fig.height=7}
+```{r tailor_plot_mfi, fig.align= "center", fig.width=9, fig.height=9}
 set.seed(525) # use the same seed as above, so figures can be compared
 plot_tailor_fluorescence(tailor_obj)
 ```
 
 ## Advanced workflow
 
-You will get better results if you take control over the initial step (or "binning step") of Tailor's learning phase.
-In this step, events are placed into phenotypically similar bins, and one or more representatives from each bin is chosen. You should think of binning as a way to perform density-based subsampling of the data. To define the bins, Tailor models the distribution of each individual parameter as a Gaussian mixture, with 1-3 components. (This is distinct from the main modeling step, where the 15-dimensional distribution of all parameters is modeled as a Gaussian mixture with 50 components.) This 1D modeling happens behind the scenes in a run of `tailor_learn()` with default settings. Instead, you can do it explicitly using `get_1D_mixtures()`, and visualize the result with `inspect_1D_mixtures()`.
+You will get better results if you take control over the initial step (or "binning step") of 
+Tailor's learning phase.
+In this step, events are placed into phenotypically similar bins, and one or more representatives 
+from each bin is chosen. You should think of binning as a way to perform density-based subsampling 
+of the data. To define the bins, Tailor models the distribution of each individual parameter as a 
+Gaussian mixture, with 1-3 components. (This is distinct from the main modeling step, where the 
+15-dimensional distribution of all parameters is modeled as a Gaussian mixture with 50 components.) 
+This 1D modeling happens behind the scenes in a run of `tailor_learn()` with default settings. 
+Instead, you can do it explicitly using `get_1D_mixtures()`, and visualize the result with 
+`inspect_1D_mixtures()`.
 
 ```{r 1D_mixtures, fig.width=8, fig.height=4}
 mixtures_1D <- get_1D_mixtures(data, tailor_params,
@@ -133,7 +185,9 @@ mixtures_1D <- get_1D_mixtures(data, tailor_params,
 inspect_1D_mixtures(data, mixtures_1D, tailor_params)
 ```
 
-Most of the 1D models look reasonable. But say that we wanted to model CD127 as two mixture components instead of one. We can use the method `customize_1D_mixtures()` to update a user-specified list of parameters. Compare the result to the previous 1-component model for CD127 above.
+Most of the 1D models look reasonable. But say that we wanted to model CD127 as two mixture 
+components instead of one. We can use the method `customize_1D_mixtures()` to update a user-specified 
+list of parameters. Compare the result to the previous 1-component model for CD127 above.
 
 ```{r customize_1D_mixtures, fig.width=8, fig.height=4}
 to_customize <- list("CD127BV421" = 2) # model CD127 with 2 mixture components
@@ -141,7 +195,9 @@ mixtures_1D <- customize_1D_mixtures(data, to_customize, mixtures_1D, verbose = 
 inspect_1D_mixtures(data, mixtures_1D, names(to_customize))
 ```
 
-We can pass the 1D mixtures created above as an argument to `tailor_learn()`, and they will be used in the binning process. We can also specify some 1D mixture components that should be merged in the same bin, if we have grounds to believe that they represent the same biological population.
+We can pass the 1D mixtures created above as an argument to `tailor_learn()`, and they will be used 
+in the binning process. We can also specify some 1D mixture components that should be merged in the 
+same bin, if we have grounds to believe that they represent the same biological population.
 
 ```{r learn_advanced}
 # mixtures_1D$to_merge <- list("CD11BAPCCY7"= c(1,2), "CD45RAQ655" = c(1,2), "CD27AF700" = c(2,3))
@@ -163,7 +219,7 @@ set.seed(525)
 plot_tailor_majpheno(tailor_obj)
 ```
 
-```{r tailor_plot_fluorescence_advanced, fig.align="center", fig.width=9, fig.height=7}
+```{r tailor_plot_fluorescence_advanced, fig.align="center", fig.width=9, fig.height=9}
 set.seed(525)
 plot_tailor_fluorescence(tailor_obj)
 ```
@@ -171,5 +227,6 @@ plot_tailor_fluorescence(tailor_obj)
 
 ## Remarks
 
-The Tailor package is a work in progress. When you find something that doesn't work, please let me know.
+The Tailor package is a work in progress. When you find something that doesn't work, please 
+let me know.
 
