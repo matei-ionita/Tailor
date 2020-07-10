@@ -22,8 +22,8 @@ approach to identify distinct cell populations which show up as the tail of a un
 In contrast, many existing clustering approaches would consider such tails as noise, and consider the 
 entire unimodal distribution as a single population. 
 
-See, for example, the case of pD1 in the
-example dataset. The leftmost panel shows a kernel density estimate of the global pD1 distribution,
+See, for example, the case of PD1 in the
+example dataset. The leftmost panel shows a kernel density estimate of the global PD1 distribution,
 exhibiting the tail behavior described above. The rightmost panel shows how Tailor models this data
 as a mixture of two Gaussian components. The middle panel shows the mixed distribution, which closely
 approximates the original density estimate.

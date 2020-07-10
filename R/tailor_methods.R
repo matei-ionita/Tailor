@@ -356,8 +356,8 @@ inspect_1D_mixtures <- function(data, mixtures_1D, params)
   for (param in params)
   {
     plot_kde_vs_mixture(data, global_kdes,
-                        mixtures = mixtures_1D$mixtures,
-                        name = param)
+                            mixtures = mixtures_1D$mixtures,
+                            name = param)
   }
 }
 

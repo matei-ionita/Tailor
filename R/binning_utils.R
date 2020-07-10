@@ -518,36 +518,47 @@ plot_distribution_1d <- function(dat, mixtures, name,
                                 min = -2, max = 4,
                                 separate = FALSE)
 {
-  p <- mixtures[[name]]
+  mix <- mixtures[[name]]
   pts <- seq(from = min(dat[,name]), to = max(dat[,name]),
              length.out = 500)
-  k <- length(p$pro)
+  k <- length(mix$pro)
 
   # Vector of colors - assuming not more than 4 components
   colors <- c("blue", "red", "green", "orange")
 
   # Select the first mixture component
-  m <- p$mean[1]
-  sd <- sqrt(p$variance$sigmasq[1])
-  g <- p$pro[1] * dnorm(pts, mean = m, sd = sd)
+  m <- mix$mean[1]
+  sd <- sqrt(mix$variance$sigmasq[1])
+  g <- mix$pro[1] * dnorm(pts, mean = m, sd = sd)
 
   # Plot the first mixture component
   if (separate) {
-    plot(pts, g, type = "l", xlim = c(min,max), ylim = c(0,1),
-         xlab = name, ylab = "density",
-         col = "blue", main = "components", cex.main = 2)
+    df <- data.frame(cbind(pts,g))
+    names(df) <- c("x", "y")
+
+    p <- ggplot() +
+      geom_line(df, mapping = aes(x=.data$x, y=.data$y), color = "blue") +
+      labs(title = "Mixture components", x = "", y = "") +
+      theme_bw()
+
+    # plot(pts, g, type = "l", xlim = c(min,max), ylim = c(0,1),
+    #      xlab = name, ylab = "density",
+    #      col = "blue", main = "components", cex.main = 2)
   }
 
   # Same for other components
   if (k > 1) {
     for (comp in c(2:k)) {
-      m <- p$mean[comp]
-      sd <- sqrt(p$variance$sigmasq[comp])
+      m <- mix$mean[comp]
+      sd <- sqrt(mix$variance$sigmasq[comp])
 
-      g1 <-  p$pro[comp] * dnorm(pts, mean = m, sd = sd)
+      g1 <-  mix$pro[comp] * dnorm(pts, mean = m, sd = sd)
 
       if (separate) {
-        lines(pts, g1, col = colors[comp])
+        df$y <- g1
+        p <- p + geom_line(df, mapping = aes(x=.data$x, y=.data$y),
+                           color = colors[comp])
+        # lines(pts, g1, col = colors[comp])
       } else
       {
         g <- g + g1
@@ -556,10 +567,16 @@ plot_distribution_1d <- function(dat, mixtures, name,
   }
 
   if (!separate) {
-    plot(pts, g, type = "l", xlim = c(min,max), ylim = c(0,1),
-         xlab = name, ylab = "density",
-         main = "Gaussian mixture", cex.main = 2)
+    df <- data.frame(cbind(pts,g))
+    names(df) <- c("x", "y")
+
+    p <- ggplot(df, aes(x=.data$x, y=.data$y)) +
+      geom_line() +
+      labs(title = "Gaussian mixture", x = "", y = "") +
+      theme_bw()
+
   }
+  return(p)
 }
 
 
