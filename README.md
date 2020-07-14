@@ -2,9 +2,11 @@
 An R package for clustering via Gaussian Mixture Modeling, optimized for heavy-tailed distributions in flow cytometry data.
 
 ## Installation
-The vignette may take a few minutes to build; if it causes any trouble, just set `build_vignettes = FALSE`.
+It's easiest to install Tailor with the help of the `devtools` package.
 
 `devtools::install_github("matei-ionita/Tailor", build_vignettes = TRUE)`
+
+The vignette may take a few minutes to build; if it causes any trouble, just set `build_vignettes = FALSE`.
 
 ## Summary
 Due to increasing size and complexity of flow cytometry datasets, there has been a lot of recent interest in unsupervised 
