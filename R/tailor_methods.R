@@ -471,6 +471,7 @@ plot_tailor_majpheno <- function(tailor_obj)
 #' @description Plot a t-SNE reduction to 2d of the cluster centroids,
 #' color-coded by mean fluorescence intensity for each parameter.
 #' @param tailor_obj A tailor object, as obtained from tailor.learn.
+#' @param midpoint Numeric, to be used as the middle of the scale for intensity plots.
 #' @return A grid of 2d reduced plots of cluster centroids, one for each
 #' parameter.
 #' @examples
@@ -484,7 +485,7 @@ plot_tailor_majpheno <- function(tailor_obj)
 #'
 #' plot_tailor_fluorescence(tailor_obj)
 #' @export
-plot_tailor_fluorescence <- function(tailor_obj)
+plot_tailor_fluorescence <- function(tailor_obj, midpoint = 1.5)
 {
   pro <- tailor_obj$mixture$pro
   map <- tailor_obj$cat_clusters$mixture_to_cluster
@@ -511,7 +512,7 @@ plot_tailor_fluorescence <- function(tailor_obj)
     g <- ggplot(res, aes(x=.data$tsne_1, y = .data$tsne_2)) +
       geom_point(aes(color = .data$color, size = .data$logsize), alpha = 0.8) +
       scale_color_gradient2(low = "green", mid = "yellow",
-                            high = "red", midpoint = 1.5,
+                            high = "red", midpoint = midpoint,
                             guide = guide_colorbar(title = "Mean Fluorescence Intensity",
                                                    direction = "horizontal",
                                                    title.position = "top")) +

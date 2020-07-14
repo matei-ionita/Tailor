@@ -4,10 +4,12 @@
 \alias{plot_tailor_fluorescence}
 \title{plot_tailor_fluorescence}
 \usage{
-plot_tailor_fluorescence(tailor_obj)
+plot_tailor_fluorescence(tailor_obj, midpoint = 1.5)
 }
 \arguments{
 \item{tailor_obj}{A tailor object, as obtained from tailor.learn.}
+
+\item{midpoint}{Numeric, to be used as the middle of the scale for intensity plots.}
 }
 \value{
 A grid of 2d reduced plots of cluster centroids, one for each
