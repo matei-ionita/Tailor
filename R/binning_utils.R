@@ -224,131 +224,18 @@ find_to_merge <- function(mixtures, params, negative_threshold = 0.5,
 }
 
 
-# Map each data point to the most probable mixture component
-# for all parameters. to_merge is a list specifying components
-# that should be merged; probabilities
-# are added in this case.
-mapping_from_mixtures <- function(data, mixtures, to_merge, params,
-                                 parallel = FALSE, verbose = FALSE)
+map_events_to_bins <- function(data, cutoffs)
 {
-  d <- length(mixtures)
-  n <- nrow(data)
-  data = data[,params]
+  data <- data[,names(cutoffs)]
+  cutoffs <- as.numeric(cutoffs)
 
-  if (parallel) {
-    if (verbose) { cat("Mapping", n, "events to", d, "univariate mixtures in parallel...") }
-    mapping <- map_1D_parallel(data, mixtures, to_merge)
-  }
-  else {
-    if (verbose) { cat("Mapping", n, "events to", d, "univariate mixtures sequentially: ") }
-    mapping <- map_1D_sequential(data, mixtures, to_merge, verbose)
-  }
-  if(verbose) {cat("\n")}
+  mapping <- t(t(data) - cutoffs) # inelegant, but faster than sweep
+  mapping[mapping >  0] <- 2L
+  mapping[mapping <= 0] <- 1L
+  mode(mapping) <- "integer"
 
   return(mapping)
 }
-
-
-map_1D_parallel <- function(data, mixtures, to_merge)
-{
-  cl <- start_parallel_cluster()
-  d <- length(mixtures)
-  n <- nrow(data)
-
-  data_param <- NULL
-  mapping <- foreach(data_param = iter(data, by='col'),
-                     .combine = cbind, .packages = c("mvtnorm")) %dopar% {
-    param <- colnames(data_param)[1]
-    mixture <- mixtures[[param]]
-    k <- length(mixture$pro)
-    n_small <- length(to_merge[[param]])
-
-    # If there is only one component left after merging, skip this parameter
-    if (k < 2 | k == n_small) {
-      rep(0L,n)
-    } else {
-      to_sum <- NULL
-      if (n_small > 1) {
-        sum_base <- to_merge[[param]][1]
-        to_sum <- to_merge[[param]][c(2:n_small)]
-      }
-      probs <- matrix(0, nrow = n, ncol = k - length(to_sum))
-      summed <- 0
-
-      for (i in seq(k)) {
-        if (i %in% to_sum) {
-          summed <- summed + 1
-          probs[,sum_base] <- probs[,sum_base] + mixture$pro[i] * dnorm(data_param, mean = mixture$mean[i],
-                                                                        sd = sqrt(mixture$variance$sigmasq[i]))
-        } else {
-          probs[,i-summed] <- mixture$pro[i] * dnorm(data_param, mean = mixture$mean[i],
-                                                    sd = sqrt(mixture$variance$sigmasq[i]))
-        }
-      }
-      apply(probs, 1, which.max)
-    }
-  }
-  stopCluster(cl)
-
-  colnames(mapping) <- colnames(data)
-  col_list <- NULL
-  for (param in colnames(data)) {
-    if (mapping[1,param] != 0) {col_list = c(col_list, param)}
-  }
-  mapping <- mapping[,col_list]
-  return(mapping)
-}
-
-
-map_1D_sequential <- function(data, mixtures, to_merge, verbose)
-{
-  d <- length(mixtures)
-  n <- nrow(data)
-
-  mapping <- matrix(nrow = n, ncol = 0)
-  params = colnames(data)
-  col_list <- NULL
-
-  for (ind in seq(d)) {
-    param <- params[ind]
-    mixture <- mixtures[[param]]
-    k <- length(mixture$pro)
-    n_small <- length(to_merge[[param]])
-
-    if (verbose) { cat(param, " ") }
-
-    # If there is only one component left after merging, skip this parameter
-    if (k < 2 | k == n_small) { next }
-
-    to_sum <- NULL
-    if (n_small > 1) {
-      sum_base <- to_merge[[param]][1]
-      to_sum <- to_merge[[param]][c(2:n_small)]
-    }
-
-    # Compute probabilities for each class (up to a normalization factor)
-    probs <- matrix(0, nrow = n, ncol = k - length(to_sum))
-    summed <- 0
-
-    for (i in seq(k)) {
-      # If class i is to be merged with class sum_base, add the probabilities
-      if (i %in% to_sum) {
-        summed <- summed + 1
-        probs[,sum_base] <- probs[,sum_base] + mixture$pro[i] * dnorm(data[,param], mean = mixture$mean[i],
-                                                                      sd = sqrt(mixture$variance$sigmasq[i]))
-      } else {
-        probs[,i-summed] <- mixture$pro[i] * dnorm(data[,param], mean = mixture$mean[i],
-                                                   sd = sqrt(mixture$variance$sigmasq[i]))
-      }
-    }
-    class <- apply(probs, 1, which.max)
-    mapping <- cbind(mapping, class, deparse.level = 0)
-    col_list <- c(col_list, param)
-  }
-  colnames(mapping) <- col_list
-  return(mapping)
-}
-
 
 
 # Collapse all class assignments into a string; this is the bin label
@@ -578,11 +465,6 @@ plot_distribution_1d <- function(dat, mixtures, name,
   }
   return(p)
 }
-
-
-
-
-
 
 
 

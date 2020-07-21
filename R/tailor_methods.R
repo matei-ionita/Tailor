@@ -110,9 +110,8 @@ tailor_learn <- function(data, params = NULL, mixtures_1D = NULL,
   }
 
   if (verbose > 0) print("Binning...")
-  mapping <- mapping_from_mixtures(data[,params], mixtures_1D$mixtures,
-                                   mixtures_1D$to_merge, params,
-                                   parallel = parallel, verbose = (verbose >= 1))
+  cutoffs <- get_1D_cutoffs(mixtures_1D$mixtures, mixtures_1D$to_merge, params)
+  mapping <- map_events_to_bins(data[,params], cutoffs)
   bin <- bin_label(mapping)
   bin_summary <- get_bin_summary(bin)
 
@@ -129,7 +128,6 @@ tailor_learn <- function(data, params = NULL, mixtures_1D = NULL,
                           mixture = init_mixture, verbose = (verbose >= 1))
 
   if(verbose > 0) print("Categorical merging...")
-  cutoffs <- get_1D_cutoffs(mixtures_1D$mixtures, mixtures_1D$to_merge, params)
   cat_clusters <- categorical_merging(mixture$pro, mixture$mean, cutoffs, params)
 
   tailor_obj <- list("mixture" = mixture, "mixtures_1D" = mixtures_1D,

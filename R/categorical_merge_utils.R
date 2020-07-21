@@ -51,10 +51,10 @@ get_1D_cutoffs <- function(mixtures, to_merge, params)
     sd2 <- sqrt(mix$variance$sigmasq[i2])
 
     # look for point where second gaussian becomes larger than the first
-    pos <- mean1
+    pos <- mean1 - 1
     while (pro1 * dnorm(pos, mean = mean1, sd = sd1)
            > pro2 * dnorm(pos, mean = mean2, sd = sd2)) {
-      pos <- pos + 0.05
+      pos <- pos + 0.0005
     }
 
     cutoffs[[param]] <- pos
