@@ -18,9 +18,7 @@ get_1D_cutoffs <- function(mixtures, to_merge, params)
 {
   cutoffs <- list()
 
-  # Ignore distinction between mixture components
-  # specified in to_merge; we don't expect these
-  # to be biologically different
+  # Ignore distinction between components specified in to_merge
   for (param in params) {
     mix <- mixtures[[param]]
     if (length(mix$pro) == 1) {
@@ -50,11 +48,15 @@ get_1D_cutoffs <- function(mixtures, to_merge, params)
     sd1 <- sqrt(mix$variance$sigmasq[i1])
     sd2 <- sqrt(mix$variance$sigmasq[i2])
 
-    # look for point where second gaussian becomes larger than the first
-    pos <- mean1 - 1
-    while (pro1 * dnorm(pos, mean = mean1, sd = sd1)
-           > pro2 * dnorm(pos, mean = mean2, sd = sd2)) {
-      pos <- pos + 0.0005
+    er <- 1e-4
+    f <- function(x) pro1 * dnorm(x,mean1,sd1) - pro2 * dnorm(x,mean2,sd2)
+    pos <- binary_search(f, range = c(mean1, mean2), val = 0, error = er)
+
+    if (abs(pos - mean1) < 1e-4) {
+      pos <- binary_search(f, range = c(mean1-sd1, mean1), val = 0, error = er)
+    }
+    if (abs(pos - mean2) < 1e-4) {
+      pos <- binary_search(f, range = c(mean2, mean2+sd2), val = 0, error = er)
     }
 
     cutoffs[[param]] <- pos

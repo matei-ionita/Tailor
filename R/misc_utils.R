@@ -106,6 +106,23 @@ tailor_map_sequential <- function(data, tailor_obj, n_batch, verbose)
 }
 
 
+binary_search <- function(f, range, val = 0, error = 1e-4) {
+  lower <- range[1]
+  upper <- range[2]
+  mid   <- (lower + upper)/2
+  trend <- ifelse(f(upper) >= f(lower), 1, -1)
 
+  if (abs(f(mid) - val) < error) return(mid)
+  if (upper - mid < error) return(upper)
+  if (mid - lower < error) return(lower)
+
+  diff <- trend * (f(mid) - val)
+  if (diff < 0) {
+    return(binary_search(f, c(mid, upper)))
+  }
+  else {
+    return(binary_search(f, c(lower, mid)))
+  }
+}
 
 
