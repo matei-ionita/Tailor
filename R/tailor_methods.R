@@ -458,7 +458,8 @@ plot_tailor_majpheno <- function(tailor_obj)
     geom_point(aes(color = .data$phenotype, size = .data$logsize),
                alpha = 0.8) +
     scale_color_brewer(palette = "Paired") +
-    guides(size = FALSE)
+    guides(size = FALSE) +
+    theme_bw()
 
   return(g)
 }
@@ -516,6 +517,7 @@ plot_tailor_fluorescence <- function(tailor_obj, midpoint = 1.5)
                                                    title.position = "top")) +
       ggtitle(param) +
       guides(size = FALSE) +
+      theme_bw() +
       theme(axis.title.x=element_blank(),
             axis.text.x=element_blank(),
             axis.ticks.x=element_blank(),
