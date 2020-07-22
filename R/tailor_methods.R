@@ -236,7 +236,7 @@ tailor_predict <- function(data, tailor_obj, n_batch = 64,
 #' mixtures_1D <- get_1D_mixtures(fs_old, tailor_params)
 #' @export
 get_1D_mixtures <- function(data, params, max_mixture = 3,
-                           prior_BIC = NULL, sample_fraction = 1e-2,
+                           prior_BIC = NULL, sample_fraction = 3e-2,
                            parallel = FALSE,
                            verbose = FALSE)
 {
