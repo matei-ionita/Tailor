@@ -236,7 +236,7 @@ tailor_predict <- function(data, tailor_obj, n_batch = 64,
 #' mixtures_1D <- get_1D_mixtures(fs_old, tailor_params)
 #' @export
 get_1D_mixtures <- function(data, params, max_mixture = 3,
-                           prior_BIC = NULL, sample_fraction = 0.2,
+                           prior_BIC = NULL, sample_fraction = 1e-2,
                            parallel = FALSE,
                            verbose = FALSE)
 {
@@ -244,16 +244,16 @@ get_1D_mixtures <- function(data, params, max_mixture = 3,
   data <- data[,params]
 
   # Keep all data, or sample a subset to speed up
-  if (sample_fraction == 1) {
-    sel <- seq_len(nrow(data))
-  } else {
+  if (sample_fraction < 1) {
     sample_size <- ceiling(sample_fraction * nrow(data))
+    sample_size <- min(max(sample_size, 1e4), nrow(data))
     sel <- sample(nrow(data), sample_size)
+    data <- data[sel,]
+    print(sample_size)
   }
-  data = data[sel,]
 
   if (is.null(prior_BIC)) {
-    prior_BIC <- exp(-3.7 + 0.732 * log(5 * length(sel)))
+    prior_BIC <- exp(-3.7 + 0.732 * log(5 * nrow(data)))
   }
 
   if (parallel) {
