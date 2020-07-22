@@ -186,11 +186,11 @@ inspect_1D_mixtures(data, mixtures_1D, tailor_params)
 ```
 
 Most of the 1D models look reasonable. But say that we wanted to model CD127 as two mixture 
-components instead of one. We can use the method `customize_1D_mixtures()` to update a user-specified 
-list of parameters. Compare the result to the previous 1-component model for CD127 above.
+components instead of one, and CD14 as two mixture components instead of three. We can use the method `customize_1D_mixtures()` to update a user-specified 
+list of parameters. Compare the result to the previous models for CD127 and CD11 above.
 
 ```{r customize_1D_mixtures, fig.width=8, fig.height=4}
-to_customize <- list("CD127BV421" = 2) # model CD127 with 2 mixture components
+to_customize <- list("CD127BV421" = 2, "CD11BAPCCY7" = 2)
 mixtures_1D <- customize_1D_mixtures(data, to_customize, mixtures_1D, verbose = TRUE)
 inspect_1D_mixtures(data, mixtures_1D, names(to_customize))
 ```

@@ -249,7 +249,6 @@ get_1D_mixtures <- function(data, params, max_mixture = 3,
     sample_size <- min(max(sample_size, 1e4), nrow(data))
     sel <- sample(nrow(data), sample_size)
     data <- data[sel,]
-    print(sample_size)
   }
 
   if (is.null(prior_BIC)) {
