@@ -1,11 +1,12 @@
 as_matrix <- function(data) {
-  if(is(data, "flowSet")) {
-    data <- suppressWarnings(as(data, "flowFrame"))
-    flowCore::exprs(data) <- flowCore::exprs(data)[,which(flowCore::colnames(data) != "Original")]
+  if (is(data, "flowSet")) {
+    data <- flowCore::exprs(suppressWarnings(as(data, "flowFrame")))
+    data <- data[,which(colnames(data) != "Original")]
   }
 
-  if(is(data,"flowFrame")) data <- flowCore::exprs(data)
-
+  if (is(data, "flowFrame")) {
+    data <- flowCore::exprs(data)
+  }
   return(data)
 }
 
