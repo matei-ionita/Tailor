@@ -142,12 +142,23 @@ categorical_merging <- function(pros, means, cutoffs, params)
     centers[i,] <- centers[i,] / weight
   }
 
-  l <- list(phenotypes = un, mixture_to_cluster = cat_mapping, centers = centers)
+  phenotypes <- get_unique_phenotypes(params, un)
+  l <- list(phenotypes = phenotypes, mixture_to_cluster = cat_mapping, centers = centers)
   return(l)
 }
 
 
+get_unique_phenotypes <- function(names, unique) {
+  split <- strsplit(unique, "")
+  phenotypes <- do.call(rbind, split)
+  phenotypes <- data.frame(phenotypes)
+  names(phenotypes) <- names
 
+  n_levels <- vapply(phenotypes, function(x) length(unique(x)), integer(1))
+  phenotypes <- phenotypes[,which(n_levels > 1)]
+
+  return(phenotypes)
+}
 
 
 

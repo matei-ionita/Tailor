@@ -383,8 +383,8 @@ inspect_1D_mixtures <- function(data, mixtures_1D, params)
 #' @export
 categorical_labeling <- function(tailor_obj, defs)
 {
-  n <- length(tailor_obj$cat_clusters$phenotypes)
-  params <- colnames(tailor_obj$mixture$mean)
+  n <- nrow(tailor_obj$cat_clusters$phenotypes)
+  params <- names(tailor_obj$cat_clusters$phenotypes)
   tailor_obj$cat_clusters[["labels"]] <- vector(mode = "character",
                                                 length = n)
   labs <- rownames(defs)
@@ -402,9 +402,11 @@ categorical_labeling <- function(tailor_obj, defs)
       match <- TRUE
       for (k in seq(ncol(defs))) {
         if (defs[j,k] == "hi" &
-            substr(tailor_obj$cat_clusters$phenotypes[i],ind[k],ind[k]) == "-" |
+            # substr(tailor_obj$cat_clusters$phenotypes[i],ind[k],ind[k]) == "-" |
+            tailor_obj$cat_clusters$phenotypes[i,ind[k]] == "-" |
             defs[j,k] == "lo" &
-            substr(tailor_obj$cat_clusters$phenotypes[i],ind[k],ind[k]) == "+") {
+            # substr(tailor_obj$cat_clusters$phenotypes[i],ind[k],ind[k]) == "+") {
+            tailor_obj$cat_clusters$phenotypes[i,ind[k]] == "+") {
           match <- FALSE
         }
       }
