@@ -226,33 +226,27 @@ find_to_merge <- function(mixtures, params, negative_threshold = 0.5,
 
 map_events_to_bins <- function(data, cutoffs)
 {
-  data <- data[,names(cutoffs)]
+  params  <- names(cutoffs)
   cutoffs <- as.numeric(cutoffs)
 
-  mapping <- t(t(data) - cutoffs) # inelegant, but faster than sweep
+  mapping <- t(t(data[,params]) - cutoffs) # inelegant, but faster than sweep
   mapping[mapping >  0] <- 2L
   mapping[mapping <= 0] <- 1L
   mode(mapping) <- "integer"
 
-  return(mapping)
-}
-
-
-# Collapse all class assignments into a string; this is the bin label
-bin_label <- function(mapping)
-{
-  apply(mapping, 1, function(x) {paste(x, collapse = "")})
+  bins <- apply(mapping, 1, function(x) {paste(x, collapse = "")})
+  return(bins)
 }
 
 
 # Process bin assignment, and return list of bins sorted by size
-get_bin_summary <- function(bin)
+get_bin_summary <- function(bins)
 {
-  t <- table(bin)
+  t <- table(bins)
   t_sorted <- rev(order(t))
   box_idx <- t
   box_idx[names(box_idx)] <- seq_len(length(box_idx))
-  predictions <- as.vector(box_idx[bin])
+  predictions <- as.vector(box_idx[bins])
   t_numeric <- table(predictions)
   t_numeric_sorted <- rev(order(t_numeric))
 

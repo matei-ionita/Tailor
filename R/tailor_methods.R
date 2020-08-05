@@ -111,9 +111,8 @@ tailor_learn <- function(data, params = NULL, mixtures_1D = NULL,
 
   if (verbose > 0) print("Binning...")
   cutoffs <- get_1D_cutoffs(mixtures_1D$mixtures, mixtures_1D$to_merge, params)
-  mapping <- map_events_to_bins(data[,params], cutoffs)
-  bin <- bin_label(mapping)
-  bin_summary <- get_bin_summary(bin)
+  bins <- map_events_to_bins(data[,params], cutoffs)
+  bin_summary <- get_bin_summary(bins)
 
   if (verbose > 0) print("Weighted subsampling...")
   wsub <- get_weighted_subsample(data, bin_summary, params,
