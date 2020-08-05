@@ -542,6 +542,7 @@ plot_tailor_fluorescence <- function(tailor_obj, midpoint = 1.5)
 #' @description Plot 1D kdes of a dataset for visual inspection.
 #' @param data A flowSet, flowFrame or a matrix containing events
 #' along the rows, markers along columns.
+#' @param data_overlay Some different data for comparison.
 #' @param params A list of markers to use; must be subset of
 #' colnames(data).
 #' @return Plots of kernel density estimate for each chosen parameter.
@@ -550,24 +551,36 @@ plot_tailor_fluorescence <- function(tailor_obj, midpoint = 1.5)
 #'                          package = "Tailor")
 #' load(fileName)
 #' tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
-#' plot_kdes_global(fs_old, tailor_params)
+#' plot_kdes_global(fs_old, params = tailor_params)
 #' @export
-plot_kdes_global <- function(data, params)
+plot_kdes_global <- function (data, data_overlay = NULL, params = NULL)
 {
-  data = as_matrix(data)
+  data <- as_matrix(data)
+  if (is.null(params)) params <- colnames(data)
+
   global_kdes <- make_kdes_global(data, params)
+
+  if (!is.null(data_overlay)) {
+    data_overlay <- as_matrix(data_overlay)
+    overlay_kdes <- make_kdes_global(data_overlay, params)
+  }
 
   plot_list <- list()
   for (param in params) {
     df <- data.frame(global_kdes[[param]])
-    g <- ggplot(df, aes(x=.data$x, y=.data$y)) +
-      geom_line() +
+    g <- ggplot() +
+      geom_line(df, mapping = aes(x = .data$x, y = .data$y)) +
       labs(title = param, x = "", y = "") +
       theme_bw()
 
+    if (!is.null(data_overlay)) {
+      df_overlay <- data.frame(overlay_kdes[[param]])
+      g <- g + geom_line(df_overlay, mapping = aes(x = .data$x, y = .data$y),
+                         color = "red")
+    }
+
     plot_list[[param]] <- g
   }
-
   ncol <- min(5, ceiling(sqrt(length(params))))
   return(gridExtra::grid.arrange(grobs = plot_list, ncol = ncol))
 }

@@ -4,11 +4,13 @@
 \alias{plot_kdes_global}
 \title{plot_kdes_global}
 \usage{
-plot_kdes_global(data, params)
+plot_kdes_global(data, data_overlay = NULL, params = NULL)
 }
 \arguments{
 \item{data}{A flowSet, flowFrame or a matrix containing events
 along the rows, markers along columns.}
+
+\item{data_overlay}{Some different data for comparison.}
 
 \item{params}{A list of markers to use; must be subset of
 colnames(data).}
@@ -24,5 +26,5 @@ fileName <- system.file("extdata", "sampled_flowset_old.rda",
                          package = "Tailor")
 load(fileName)
 tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
-plot_kdes_global(fs_old, tailor_params)
+plot_kdes_global(fs_old, params = tailor_params)
 }

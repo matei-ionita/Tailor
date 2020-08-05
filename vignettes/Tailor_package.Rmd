@@ -72,9 +72,9 @@ load(fileName)   # fs_old
 
 tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
 data <- fs_old[[4]]
-set.seed(525)
+set.seed(524)
 
-plot_kdes_global(data, tailor_params)
+plot_kdes_global(data, params = tailor_params)
 ```
 
 
@@ -153,7 +153,7 @@ Use `plot_tailor_majpheno()` to view a t-SNE embedding to 2D of the categorical 
 They are color-coded by major phenotype, and the size of the dots depends logarithmically on cluster size.
 
 ```{r tailor_plot_clusters, fig.align= "center", fig.width=6, fig.height=4}
-set.seed(525)
+set.seed(524)
 plot_tailor_majpheno(tailor_obj)
 ```
 
@@ -161,7 +161,7 @@ Alternatively, plot the same t-SNE embeddings, color-coded by (bi-exponentially 
 fluorescence intensity of the cluster. 
 
 ```{r tailor_plot_mfi, fig.align= "center", fig.width=9, fig.height=9}
-set.seed(525) # use the same seed as above, so figures can be compared
+set.seed(524) # use the same seed as above, so figures can be compared
 plot_tailor_fluorescence(tailor_obj)
 ```
 
@@ -185,12 +185,13 @@ mixtures_1D <- get_1D_mixtures(data, tailor_params,
 inspect_1D_mixtures(data, mixtures_1D, tailor_params)
 ```
 
-Most of the 1D models look reasonable. But say that we wanted to model CD127 as two mixture 
-components instead of one, and CD14 as two mixture components instead of three. We can use the method `customize_1D_mixtures()` to update a user-specified 
-list of parameters. Compare the result to the previous models for CD127 and CD11 above.
+Most of the 1D models look reasonable. But, given some domain knowledge, it may seem more reasonable to
+model CD27 as one mixture component instead of two, and CD14 as two mixture components instead of 
+three. We can use the method `customize_1D_mixtures()` to update a user-specified 
+list of parameters. Compare the result to the previous models for CD27 and CD11 above.
 
 ```{r customize_1D_mixtures, fig.width=8, fig.height=4}
-to_customize <- list("CD127BV421" = 2, "CD11BAPCCY7" = 2)
+to_customize <- list("CD27AF700" = 1, "CD11BAPCCY7" = 2)
 mixtures_1D <- customize_1D_mixtures(data, to_customize, mixtures_1D, verbose = TRUE)
 inspect_1D_mixtures(data, mixtures_1D, names(to_customize))
 ```
@@ -215,12 +216,12 @@ tailor_pred <- tailor_predict(data = data,
 We can visualize the t-SNE embeddings of the new categorical clusters.
 
 ```{r tailor_plot_clusters_advanced, fig.align= "center", fig.width=6, fig.height=4}
-set.seed(525)
+set.seed(524)
 plot_tailor_majpheno(tailor_obj)
 ```
 
 ```{r tailor_plot_fluorescence_advanced, fig.align="center", fig.width=9, fig.height=9}
-set.seed(525)
+set.seed(524)
 plot_tailor_fluorescence(tailor_obj)
 ```
 
