@@ -111,8 +111,7 @@ tailor_learn <- function(data, params = NULL, mixtures_1D = NULL,
 
   if (verbose > 0) print("Binning...")
   cutoffs <- get_1D_cutoffs(mixtures_1D$mixtures, mixtures_1D$to_merge, params)
-  bins <- map_events_to_bins(data[,params], cutoffs)
-  bin_summary <- get_bin_summary(bins)
+  bin_summary <- map_events_to_bins(data[,params], cutoffs)
 
   if (verbose > 0) print("Weighted subsampling...")
   wsub <- get_weighted_subsample(data, bin_summary, params,
@@ -120,7 +119,7 @@ tailor_learn <- function(data, params = NULL, mixtures_1D = NULL,
   init_mixture <- get_init(data, bin_summary, params,
                            min_bin_size, mixture_components, verbose)
 
-  if (verbose > 0) { print("Running bulk mixture model...")}
+  if (verbose > 0) print("Running bulk mixture model...")
   mixture <- bulk_weighted_gmm(data = wsub$means, k = mixture_components,
                           params = params, weights = wsub$sizes,
                           variance_correction = wsub$variances,

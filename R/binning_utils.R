@@ -235,7 +235,8 @@ map_events_to_bins <- function(data, cutoffs)
   mode(mapping) <- "integer"
 
   bins <- apply(mapping, 1, function(x) {paste(x, collapse = "")})
-  return(bins)
+  bin_summary <- get_bin_summary(bins)
+  return(bin_summary)
 }
 
 
