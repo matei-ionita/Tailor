@@ -101,7 +101,7 @@ print_kdes_with_cutoffs <- function(data, cutoffs, parameters)
 # each categorical cluster, as well as mapping from
 # mixture components to categorical clusters.
 ###################################################
-categorical_merging <- function(pros, means, cutoffs, params)
+categorical_merging <- function(pros, means, sigmas, cutoffs, params)
 {
   n <- nrow(means)
   categs <- vector(mode = "character", length = n)
@@ -130,9 +130,20 @@ categorical_merging <- function(pros, means, cutoffs, params)
     cat_mapping[i] <- which(un == categs[i])
   }
 
-  centers <- matrix(0, nrow = length(un), ncol = length(params))
+  centers <- get_cluster_means(un, params, cat_mapping, pros, means)
+  sds <- get_cluster_sds(un, params, cat_mapping, pros, means, sigmas, centers)
+  phenotypes <- get_unique_phenotypes(params, un)
+  cutoffs <- vapply(cutoffs, unname, numeric(1))
+
+  l <- list(phenotypes = phenotypes, mixture_to_cluster = cat_mapping,
+            centers = centers, sds = sds, cutoffs = cutoffs)
+  return(l)
+}
+
+get_cluster_means <- function(unique, params, cat_mapping, pros, means) {
+  centers <- matrix(0, nrow = length(unique), ncol = length(params))
   colnames(centers) <- params
-  for (i in seq(length(un))) {
+  for (i in seq(length(unique))) {
     weight <- 0
     components <- which(cat_mapping == i)
     for (comp in components) {
@@ -142,9 +153,26 @@ categorical_merging <- function(pros, means, cutoffs, params)
     centers[i,] <- centers[i,] / weight
   }
 
-  phenotypes <- get_unique_phenotypes(params, un)
-  l <- list(phenotypes = phenotypes, mixture_to_cluster = cat_mapping, centers = centers)
-  return(l)
+  return(centers)
+}
+
+
+get_cluster_sds <- function(unique, params, cat_mapping, pros, means, sigmas, centers) {
+  sds <- matrix(0, nrow = length(unique), ncol = length(params))
+  colnames(sds) <- params
+  for (i in seq(length(unique))) {
+    weight <- 0
+    var <- matrix(0, nrow = length(params), ncol = length(params))
+    components <- which(cat_mapping == i)
+    for (comp in components) {
+      diff <- means[comp,] - centers[i,]
+      var <- var + pros[comp] * sigmas[,,comp] + pros[comp] * outer(diff, diff)
+      weight <- weight + pros[comp]
+    }
+    sds[i,] <- sqrt(diag(var / weight))
+  }
+
+  return(sds)
 }
 
 

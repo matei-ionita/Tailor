@@ -126,7 +126,8 @@ tailor_learn <- function(data, params = NULL, mixtures_1D = NULL,
                           mixture = init_mixture, verbose = (verbose >= 1))
 
   if(verbose > 0) print("Categorical merging...")
-  cat_clusters <- categorical_merging(mixture$pro, mixture$mean, cutoffs, params)
+  cat_clusters <- categorical_merging(mixture$pro, mixture$mean, mixture$variance$sigma,
+                                      cutoffs, params)
 
   tailor_obj <- list("mixture" = mixture, "mixtures_1D" = mixtures_1D,
                      "cat_clusters" = cat_clusters)
@@ -584,6 +585,52 @@ plot_kdes_global <- function (data, data_overlay = NULL, params = NULL)
   ncol <- min(5, ceiling(sqrt(length(params))))
   return(gridExtra::grid.arrange(grobs = plot_list, ncol = ncol))
 }
+
+
+#' @title make_cluster_phenobars
+#' @description Visualize summary of cluster information, via boxplots showing means
+#' and standard deviations of mean fluorescence intensity. Only markers with at least
+#' one cutoff are displayed. The boxes are color-coded by mfi relative to the cutoff.
+#' @param tailor_obj A tailor object, as obtained from tailor.learn.
+#' @param cluster_ids A list of cluster indices to visualize. For example, those deemed
+#' differentially expressed in case/controls by some statistical test.
+#' @return Boxplots summarizing means and standard deviations for selected clusters.
+#' @examples
+#' fileName <- system.file("extdata", "sampled_flowset_old.rda",
+#'                        package = "Tailor")
+#' load(fileName)
+#' tailor_params <- flowCore::colnames(fs_old)[c(7:9, 11:22)]
+#' tailor_obj <- tailor_learn(data = fs_old,
+#'                           params = tailor_params,
+#'                           mixture_components = 50)
+#'
+#' make_cluster_phenobars(tailor_obj, cluster_ids = c(1,2))
+#' @export
+make_cluster_phenobars <- function(tailor_obj, cluster_ids) {
+  plot_list <- list()
+
+  params <- colnames(tailor_obj$cat_clusters$phenotypes)
+
+  for (id in cluster_ids) {
+    df <- data.frame("name" = params,
+                     "mfi" = tailor_obj$cat_clusters$centers[id,params],
+                     "sd" = tailor_obj$cat_clusters$sds[id,params],
+                     "cutoffs" = tailor_obj$cat_clusters$cutoffs[params])
+    p <- ggplot(df) +
+      geom_bar(aes(x = name, y = mfi, fill = mfi-cutoffs), color = "black", stat = "identity") +
+      geom_linerange(aes(x = name, ymin = mfi - sd, ymax = mfi + sd)) +
+      scale_fill_gradient2(low = "green", mid = "yellow", "high" = "red") +
+      coord_flip() +
+      labs(x = NULL, y = NULL, title = paste("Cluster", id)) +
+      theme(legend.position = "none")
+
+    plot_list[[id]] <- p
+  }
+
+  ncol <- min(5, ceiling(sqrt(length(cluster_ids))))
+  return(gridExtra::grid.arrange(grobs = plot_list, ncol = ncol))
+}
+
 
 
 
