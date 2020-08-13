@@ -188,10 +188,10 @@ inspect_1D_mixtures(data, mixtures_1D, tailor_params)
 Most of the 1D models look reasonable. But, given some domain knowledge, it may seem more reasonable to
 model CD27 as one mixture component instead of two, and CD14 as two mixture components instead of 
 three. We can use the method `customize_1D_mixtures()` to update a user-specified 
-list of parameters. Compare the result to the previous models for CD27 and CD11 above.
+list of parameters. Compare the result to the previous models for CD27 and CD14 above.
 
 ```{r customize_1D_mixtures, fig.width=8, fig.height=4}
-to_customize <- list("CD27AF700" = 1, "CD11BAPCCY7" = 2)
+to_customize <- list("CD27AF700" = 1, "CD14Q800" = 2)
 mixtures_1D <- customize_1D_mixtures(data, to_customize, mixtures_1D, verbose = TRUE)
 inspect_1D_mixtures(data, mixtures_1D, names(to_customize))
 ```

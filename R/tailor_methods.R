@@ -100,7 +100,7 @@ tailor_learn <- function(data, params = NULL, mixtures_1D = NULL,
     min_bin_size <- max(5,ceiling(nrow(data) / 1e5))
   }
   if(is.null(max_bin_size)) {
-    max_bin_size <- min(1e4, max(50,ceiling(nrow(data) / 1e3)))
+    max_bin_size <- max(50,ceiling(nrow(data) / 1e3))
   }
 
   if (is.null(mixtures_1D)) {
