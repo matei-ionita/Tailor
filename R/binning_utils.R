@@ -79,7 +79,6 @@ find_bin_mean <- function(data, predictions, bins, sizes, params,
   n <- nrow(data)
   k <- length(bins)
   d <- length(params)
-  data = data[,params]
 
   if(is.null(split_threshold)) {
     n_repr <- rep(1, k)
@@ -101,14 +100,14 @@ find_bin_mean <- function(data, predictions, bins, sizes, params,
     sel <- idx[[box]]
 
     if (n_repr[i] == 1) {
-      means[start,] <- apply(data[sel,,drop=FALSE], 2, mean)
+      means[start,] <- apply(data[sel,params,drop=FALSE], 2, mean)
     } else {
-      km <- split_bin_kmeans(data,sel,n_repr[i])
+      km <- split_bin_kmeans(data, params, sel, n_repr[i])
       means[c(start:(start + n_repr[i]-1)),] <- km$centers
     }
 
-    bin_info <- compute_bin_variance(data, sel, n_repr[i], start, km,
-                                       sizes[i], variances, split_box_sizes)
+    bin_info <- compute_bin_variance(data, params, sel, n_repr[i], start,
+                                     km, sizes[i], variances, split_box_sizes)
     variances <- bin_info$variances
     split_box_sizes <- bin_info$sizes
 
@@ -144,16 +143,16 @@ get_bin_list <- function(bins, sizes, selected, predictions, k)
 }
 
 
-split_bin_kmeans <- function(data, sel, k)
+split_bin_kmeans <- function(data, params, sel, k)
 {
   if (length(sel) > 100000) {
     # kmeans is just for binning purposes, don't care about convergence.
     # If there are many events, cap at 3 iterations to save time.
-    km <- suppressWarnings(kmeans(x = round(data[sel,,drop = FALSE],3),
+    km <- suppressWarnings(kmeans(x = round(data[sel,params,drop = FALSE],3),
                                   centers = k, iter.max = 3))
   }
   else {
-    km <- suppressWarnings(kmeans(x = round(data[sel,,drop = FALSE],3),
+    km <- suppressWarnings(kmeans(x = round(data[sel,params,drop = FALSE],3),
                                   centers = k))
   }
 
@@ -161,7 +160,7 @@ split_bin_kmeans <- function(data, sel, k)
 }
 
 
-compute_bin_variance <- function(data, sel, n_repr, start, km,
+compute_bin_variance <- function(data, params, sel, n_repr, start, km,
                                  size, variances, split_box_sizes)
 {
   if (length(sel) > 1) {
@@ -169,17 +168,15 @@ compute_bin_variance <- function(data, sel, n_repr, start, km,
     # If box wasn't split, compute variance for entire box
     if (n_repr == 1) {
       split_box_sizes[start] <- size
-      var <- var(data[sel,,drop = FALSE])
+      var <- var(data[sel,params,drop = FALSE])
       variances[start,,] <- var
     } else {
       # Otherwise, compute for each piece
-      data_this_box <- data[sel,]
-
       for (cl in seq_len(n_repr)) {
         ind_cl <- which(km$cluster ==cl)
         split_box_sizes[start + cl -1] <- length(ind_cl)
 
-        var <- var(data_this_box[ind_cl,,drop = FALSE])
+        var <- var(data[sel[ind_cl],params,drop = FALSE])
         if (sum(is.na(var)) != 0) {
           var <- 0
         }
