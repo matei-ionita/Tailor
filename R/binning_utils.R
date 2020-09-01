@@ -258,9 +258,11 @@ get_1D_mixtures_default <- function(data, params, parallel, verbose)
 {
   if (verbose > 0) {print("Getting 1D mixtures...")}
 
-  sample_fraction <- 0.5
-  if (nrow(data) > 5e5) sample_fraction <- 0.2
-  if (nrow(data) > 1e7) sample_fraction <- 0.1
+  sample_fraction <- 1
+  if (nrow(data) > 1e4) sample_fraction <- 0.5
+  if (nrow(data) > 1e5) sample_fraction <- 0.1
+  if (nrow(data) > 5e5) sample_fraction <- 0.06
+  if (nrow(data) > 1e6) sample_fraction <- 0.03
 
   mixtures_1D <- get_1D_mixtures(data[,params], params, max_mixture = 3,
                                  sample_fraction = sample_fraction,

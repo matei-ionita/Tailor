@@ -100,7 +100,7 @@ tailor_learn <- function(data, params = NULL, mixtures_1D = NULL,
     min_bin_size <- max(5,ceiling(nrow(data) / 1e5))
   }
   if(is.null(max_bin_size)) {
-    max_bin_size <- max(50,ceiling(nrow(data) / 1e3))
+    max_bin_size <- max(50, ceiling(nrow(data) / 1e4))
   }
 
   if (is.null(mixtures_1D)) {
@@ -240,14 +240,15 @@ get_1D_mixtures <- function(data, params, max_mixture = 3,
                            verbose = FALSE)
 {
   data <- as_matrix(data)
-  data <- data[,params]
 
   # Keep all data, or sample a subset to speed up
   if (sample_fraction < 1) {
     sample_size <- ceiling(sample_fraction * nrow(data))
     sample_size <- min(max(sample_size, 1e4), nrow(data))
     sel <- sample(nrow(data), sample_size)
-    data <- data[sel,]
+    data <- data[sel,params]
+  } else {
+    data <- data[,params]
   }
 
   if (is.null(prior_BIC)) {
@@ -608,23 +609,29 @@ plot_kdes_global <- function (data, data_overlay = NULL, params = NULL)
 #' @export
 make_cluster_phenobars <- function(tailor_obj, cluster_ids) {
   plot_list <- list()
+  cat <- tailor_obj$cat_clusters
 
-  params <- colnames(tailor_obj$cat_clusters$phenotypes)
+  params <- colnames(cat$phenotypes)
+  ymin <- min(0, min(cat$centers[cluster_ids,params] - cat$sd[cluster_ids,params]))
+  ymax <- max(cat$centers[cluster_ids,params] + cat$sd[cluster_ids,params])
 
-  for (id in cluster_ids) {
+  for (i in seq_along(cluster_ids)) {
+    id <- cluster_ids[i]
     df <- data.frame("name" = params,
                      "mfi" = tailor_obj$cat_clusters$centers[id,params],
                      "sd" = tailor_obj$cat_clusters$sds[id,params],
                      "cutoffs" = tailor_obj$cat_clusters$cutoffs[params])
+
     p <- ggplot(df) +
       geom_bar(aes(x = name, y = mfi, fill = mfi-cutoffs), color = "black", stat = "identity") +
       geom_linerange(aes(x = name, ymin = mfi - sd, ymax = mfi + sd)) +
       scale_fill_gradient2(low = "green", mid = "yellow", "high" = "red") +
+      scale_y_continuous(limits = c(ymin, ymax), expand = expansion(mult = c(0.02,0.02))) +
       coord_flip() +
       labs(x = NULL, y = NULL, title = paste("Cluster", id)) +
       theme(legend.position = "none")
 
-    plot_list[[id]] <- p
+    plot_list[[i]] <- p
   }
 
   ncol <- min(5, ceiling(sqrt(length(cluster_ids))))
