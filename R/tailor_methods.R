@@ -387,7 +387,7 @@ categorical_labeling <- function(tailor_obj, defs)
 {
   n <- nrow(tailor_obj$cat_clusters$phenotypes)
   params <- names(tailor_obj$cat_clusters$phenotypes)
-  tailor_obj$cat_clusters[["labels"]] <- vector(mode = "character",
+  tailor_obj$cat_clusters[["func"]] <- vector(mode = "character",
                                                 length = n)
   labs <- rownames(defs)
   nam <- names(defs)
@@ -398,26 +398,27 @@ categorical_labeling <- function(tailor_obj, defs)
   }
 
   for (i in seq(n)) {
-    tailor_obj$cat_clusters$labels[i] <- "UNK"
+    tailor_obj$cat_clusters$func[i] <- "UNK"
 
     for (j in seq(nrow(defs))) {
       match <- TRUE
       for (k in seq(ncol(defs))) {
         if (defs[j,k] == "hi" &
-            # substr(tailor_obj$cat_clusters$phenotypes[i],ind[k],ind[k]) == "-" |
-            tailor_obj$cat_clusters$phenotypes[i,ind[k]] == "-" |
+            tailor_obj$cat_clusters$phenotypes[i,ind[k]] == 1 |
             defs[j,k] == "lo" &
-            # substr(tailor_obj$cat_clusters$phenotypes[i],ind[k],ind[k]) == "+") {
-            tailor_obj$cat_clusters$phenotypes[i,ind[k]] == "+") {
+            tailor_obj$cat_clusters$phenotypes[i,ind[k]] > 1) {
           match <- FALSE
         }
       }
       if (match) {
-        tailor_obj$cat_clusters$labels[i] <- labs[j]
+        tailor_obj$cat_clusters$func[i] <- labs[j]
         break
       }
     }
   }
+
+  tailor_obj$cat_clusters[["labels"]] <- compute_labels(tailor_obj$cat_clusters, defs)
+
   return(tailor_obj)
 }
 
@@ -448,7 +449,7 @@ plot_tailor_majpheno <- function(tailor_obj)
   map <- tailor_obj$cat_clusters$mixture_to_cluster
 
   res <- get_tsne_clusters(tailor_obj)
-  res$phenotype <- as.factor(tailor_obj$cat_clusters$labels)
+  res$phenotype <- as.factor(tailor_obj$cat_clusters$func)
 
   cluster_ids <- seq_len(nrow(tailor_obj$cat_clusters$centers))
   res$logsize <- log(vapply(cluster_ids,
@@ -620,20 +621,32 @@ make_cluster_phenobars <- function(tailor_obj, cluster_ids, cluster_names = NULL
   ymin <- min(0, min(cat$centers[cluster_ids,params] - cat$sd[cluster_ids,params]))
   ymax <- max(cat$centers[cluster_ids,params] + cat$sd[cluster_ids,params])
 
+  midpt <- c()
+  cutoffs <- tailor_obj$cat_clusters$cutoffs
+  for (param in params) {
+    l <- length(cutoffs[[param]])
+    if (l %% 2 == 1) {
+      midpt <- c(midpt, cutoffs[[param]][l%/%2 + 1])
+    } else {
+      midpt <- c(midpt, 0.5*(cutoffs[[param]][l%/%2] + cutoffs[[param]][l%/%2 + 1]))
+    }
+  }
+
   for (i in seq_along(cluster_ids)) {
     id <- cluster_ids[i]
     df <- data.frame("name" = params,
                      "mfi" = tailor_obj$cat_clusters$centers[id,params],
                      "sd" = tailor_obj$cat_clusters$sds[id,params],
-                     "cutoffs" = tailor_obj$cat_clusters$cutoffs[params])
+                     "midpt" = midpt)
 
     p <- ggplot(df) +
-      geom_bar(aes(x = name, y = mfi, fill = mfi-cutoffs), color = "black", stat = "identity") +
+      geom_bar(aes(x = name, y = mfi, fill = mfi-midpt), color = "black", stat = "identity") +
       geom_linerange(aes(x = name, ymin = mfi - sd, ymax = mfi + sd)) +
       scale_fill_gradient2(low = "green", mid = "yellow", "high" = "red") +
       scale_y_continuous(limits = c(ymin, ymax), expand = expansion(mult = c(0.02,0.02))) +
       coord_flip() +
       labs(x = NULL, y = NULL, title = cluster_names[i]) +
+      theme_bw() +
       theme(legend.position = "none")
 
     plot_list[[i]] <- p

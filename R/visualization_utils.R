@@ -113,5 +113,69 @@ get_legend <- function(my_plot)
 
 
 
+compute_labels <- function(obj, defs) {
+  k <- length(obj$func)
+  labels <- sapply(seq(1,k), function(i) cluster_phenotype_label(obj,i, defs))
+  return(labels)
+}
+
+cluster_phenotype_label = function(obj, cluster, defs = NULL, ignore_markers = c()) {
+  phen = obj$phenotypes[cluster,]
+  hi = names(phen)[which(phen == 3)]
+  med = names(phen)[which(phen == 2)]
+  lo = names(phen)[which(phen == 1)]
+  func = obj$func[cluster]
+
+
+  if (!is.null(defs)) {
+    ex = colnames(defs)
+    idx = which(defs[func, ] == "dc")
+
+    if (length(idx > 0)) {
+      ex = ex[-idx]
+    }
+
+    ex = c(ex, ignore_markers)
+    incl_hi = hi[!(hi %in% ex)]
+    incl_med = med[!(med %in% ex)]
+    incl_lo = lo[!(lo %in% ex)]
+  } else {
+    incl_hi = hi
+    incl_med = med
+    incl_lo = lo
+  }
+
+  if(length(incl_hi) > 0) {
+    hit <- paste(sep = "", incl_hi, "++")
+  } else {
+    hit <- numeric(0)
+  }
+  if(length(incl_med) > 0) {
+    medt <- paste(sep = "", incl_med, "+")
+  } else {
+    medt <- numeric(0)
+  }
+  if(length(incl_lo) > 0) {
+    lot <- paste(sep = "", incl_lo, "-")
+  } else {
+    lot <- numeric(0)
+  }
+
+  res <- func
+  if (length(hit) > 0) {
+    res <- paste(c(func, hit), collapse = " ")
+  }
+  if (length(medt) > 0) {
+    res <- paste(c(func, medt), collapse = " ")
+  }
+  # if (length(lot) > 0) {
+  #   res <- paste(c(res , lot), collapse = " ")
+  # }
+
+  return(res)
+}
+
+
+
 
 

@@ -31,6 +31,8 @@ get_1D_cutoffs <- function(mixtures, params)
     for (i1 in seq(n_cutoffs)) {
       i2 <- i1 + 1
       pos <- get_single_cutoff(mix, i1, i2)
+      if (pos < 0.5)
+        next
       l <- length(cutoffs[[param]])
       if (l == 0)
         cutoffs[[param]] <- c(cutoffs[[param]],pos)
