@@ -8,8 +8,8 @@ get_1D_mixtures(
   data,
   params,
   max_mixture = 3,
-  prior_BIC = NULL,
-  sample_fraction = 0.03,
+  use_ICL = FALSE,
+  sample_fraction = 0.05,
   parallel = FALSE,
   verbose = FALSE
 )
@@ -24,11 +24,7 @@ of colnames(data).}
 \item{max_mixture}{Will attempt to model each marker as
 k mixture components, for
 1 <= k <= max_mixture. The best k is chosen based on a
-modified version of the Bayesian
-Information Criterion (BIC).}
-
-\item{prior_BIC}{Make this larger to favor a smaller
-number of mixture components.}
+biased version of the Integrated Complete Likelihood (ICL).}
 
 \item{sample_fraction}{A number between 0 and 1: the
 fraction of data points used in the
@@ -39,6 +35,8 @@ to process markers in parallel.}
 
 \item{verbose}{Boolean flag; if true, outputs timing and
 milestone information.}
+
+\item{bias_ICL}{Bias the ICL towards more mixture components.}
 }
 \value{
 A named list of 1D mixture models, giving mixture

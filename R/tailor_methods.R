@@ -47,6 +47,9 @@ NULL
 #' are split, to ensure that the
 #' weighted EM algorithm closely approximates a run of vanilla
 #' EM on the entire dataset.
+#' @param min_cluster_fraction Mixture components whose size is
+#' smaller than this fraction are dropped from further analysis,
+#' and a warning is returned.
 #' @param mixtures_1D Pre-computed 1D mixture models,
 #'  to be used for binning.
 #' These are computed from scratch if not provided.
@@ -89,8 +92,9 @@ NULL
 #'                           mixtures_1D = mixtures_1D)
 #' @export
 tailor_learn <- function(data, params = NULL, mixtures_1D = NULL,
-                        mixture_components = 200,
+                        mixture_components = 100,
                         min_bin_size = NULL, max_bin_size = NULL,
+                        min_cluster_fraction = 1e-3,
                         parallel = FALSE, verbose = 0.5)
 {
   data <- as_matrix(data)
@@ -102,6 +106,7 @@ tailor_learn <- function(data, params = NULL, mixtures_1D = NULL,
   if(is.null(max_bin_size)) {
     max_bin_size <- max(50, ceiling(nrow(data) / 1e4))
   }
+  min_cluster_size <- ceiling(min_cluster_fraction * nrow(data))
 
   if (is.null(mixtures_1D)) {
     mixtures_1D <- get_1D_mixtures_default(data, params, parallel, verbose)
@@ -110,17 +115,18 @@ tailor_learn <- function(data, params = NULL, mixtures_1D = NULL,
   }
 
   if (verbose > 0) print("Binning...")
-  cutoffs <- get_1D_cutoffs(mixtures_1D$mixtures, mixtures_1D$to_merge, params)
+  cutoffs <- get_1D_cutoffs(mixtures_1D$mixtures, params)
   bin_summary <- map_events_to_bins(data[,params], cutoffs)
 
   if (verbose > 0) print("Weighted subsampling...")
+  init_mixture <- get_init(data, bin_summary, params,
+                           min_cluster_size, mixture_components, verbose)
   wsub <- get_weighted_subsample(data, bin_summary, params,
                                  min_bin_size, max_bin_size, verbose)
-  init_mixture <- get_init(data, bin_summary, params,
-                           min_bin_size, mixture_components, verbose)
+
 
   if (verbose > 0) print("Running bulk mixture model...")
-  mixture <- bulk_weighted_gmm(data = wsub$means, k = mixture_components,
+  mixture <- bulk_weighted_gmm(data = wsub$means, k = length(init_mixture$pro),
                           params = params, weights = wsub$sizes,
                           variance_correction = wsub$variances,
                           mixture = init_mixture, verbose = (verbose >= 1))
@@ -214,10 +220,8 @@ tailor_predict <- function(data, tailor_obj, n_batch = 64,
 #' @param max_mixture Will attempt to model each marker as
 #' k mixture components, for
 #' 1 <= k <= max_mixture. The best k is chosen based on a
-#' modified version of the Bayesian
-#' Information Criterion (BIC).
-#' @param prior_BIC Make this larger to favor a smaller
-#' number of mixture components.
+#' biased version of the Integrated Complete Likelihood (ICL).
+#' @param bias_ICL Bias the ICL towards more mixture components.
 #' @param sample_fraction A number between 0 and 1: the
 #' fraction of data points used in the
 #' calculation of 1D mixture components, to improve runtime.
@@ -235,7 +239,7 @@ tailor_predict <- function(data, tailor_obj, n_batch = 64,
 #' mixtures_1D <- get_1D_mixtures(fs_old, tailor_params)
 #' @export
 get_1D_mixtures <- function(data, params, max_mixture = 3,
-                           prior_BIC = NULL, sample_fraction = 3e-2,
+                           use_ICL = FALSE, sample_fraction = 5e-2,
                            parallel = FALSE,
                            verbose = FALSE)
 {
@@ -251,10 +255,6 @@ get_1D_mixtures <- function(data, params, max_mixture = 3,
     data <- data[,params]
   }
 
-  if (is.null(prior_BIC)) {
-    prior_BIC <- exp(-3.7 + 0.732 * log(5 * nrow(data)))
-  }
-
   if (parallel) {
     if (verbose) cat("Learning", length(params),
                      "1D mixtures in parallel...")
@@ -265,7 +265,8 @@ get_1D_mixtures <- function(data, params, max_mixture = 3,
     if(verbose) cat("Learning", length(params),
                     "1D mixtures sequentially: ")
     mixtures <- learn_1D_mixtures_sequential(data,max_mixture,
-                                             prior_BIC,verbose)
+                                             use_ICL,verbose)
+    # mixtures <- learn_1D_mixtures_sequential_ICL(data,max_mixture,verbose)
   }
   if(verbose) {cat("\n")}
 
@@ -607,9 +608,13 @@ plot_kdes_global <- function (data, data_overlay = NULL, params = NULL)
 #'
 #' make_cluster_phenobars(tailor_obj, cluster_ids = c(1,2))
 #' @export
-make_cluster_phenobars <- function(tailor_obj, cluster_ids) {
+make_cluster_phenobars <- function(tailor_obj, cluster_ids, cluster_names = NULL) {
   plot_list <- list()
   cat <- tailor_obj$cat_clusters
+
+  if(is.null(cluster_names))
+    cluster_names <- vapply(cluster_ids, function(id) paste("Cluster", id),
+                            character(1))
 
   params <- colnames(cat$phenotypes)
   ymin <- min(0, min(cat$centers[cluster_ids,params] - cat$sd[cluster_ids,params]))
@@ -628,7 +633,7 @@ make_cluster_phenobars <- function(tailor_obj, cluster_ids) {
       scale_fill_gradient2(low = "green", mid = "yellow", "high" = "red") +
       scale_y_continuous(limits = c(ymin, ymax), expand = expansion(mult = c(0.02,0.02))) +
       coord_flip() +
-      labs(x = NULL, y = NULL, title = paste("Cluster", id)) +
+      labs(x = NULL, y = NULL, title = cluster_names[i]) +
       theme(legend.position = "none")
 
     plot_list[[i]] <- p

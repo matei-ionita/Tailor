@@ -4,7 +4,7 @@
 \alias{make_cluster_phenobars}
 \title{make_cluster_phenobars}
 \usage{
-make_cluster_phenobars(tailor_obj, cluster_ids)
+make_cluster_phenobars(tailor_obj, cluster_ids, cluster_names = NULL)
 }
 \arguments{
 \item{tailor_obj}{A tailor object, as obtained from tailor.learn.}

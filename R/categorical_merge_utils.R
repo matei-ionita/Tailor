@@ -14,55 +14,53 @@
 # Gaussian mixture components
 ##############################################
 
-get_1D_cutoffs <- function(mixtures, to_merge, params)
+get_1D_cutoffs <- function(mixtures, params)
 {
   cutoffs <- list()
 
-  # Ignore distinction between components specified in to_merge
   for (param in params) {
     mix <- mixtures[[param]]
-    if (length(mix$pro) == 1) {
+    n_cutoffs <- length(mix$pro) - 1
+
+    if (n_cutoffs == 0) {
       cutoffs[[param]] <- NULL
       next
     }
+    cutoffs[[param]] <- integer(0)
 
-    i1 <- 1
-    i2 <- 2
-
-    if (length(mix$pro) == 3) {
-      i1 <- 2
-      i2 <- 3
+    for (i1 in seq(n_cutoffs)) {
+      i2 <- i1 + 1
+      pos <- get_single_cutoff(mix, i1, i2)
+      l <- length(cutoffs[[param]])
+      if (l == 0)
+        cutoffs[[param]] <- c(cutoffs[[param]],pos)
+      else if (cutoffs[[param]][l] < pos)
+        cutoffs[[param]] <- c(cutoffs[[param]],pos)
     }
-
-    if (!is.null(to_merge[[param]])) {
-      if (to_merge[[param]][1] == 2) {
-        i1 <- 1
-        i2 <- 2
-      }
-    }
-
-    pro1 <- mix$pro[i1]
-    pro2 <- mix$pro[i2]
-    mean1 <- mix$mean[i1]
-    mean2 <- mix$mean[i2]
-    sd1 <- sqrt(mix$variance$sigmasq[i1])
-    sd2 <- sqrt(mix$variance$sigmasq[i2])
-
-    er <- 1e-4
-    f <- function(x) pro1 * dnorm(x,mean1,sd1) - pro2 * dnorm(x,mean2,sd2)
-    pos <- binary_search(f, range = c(mean1, mean2), val = 0, error = er)
-
-    if (abs(pos - mean1) < 1e-4) {
-      pos <- binary_search(f, range = c(mean1-sd1, mean1), val = 0, error = er)
-    }
-    if (abs(pos - mean2) < 1e-4) {
-      pos <- binary_search(f, range = c(mean2, mean2+sd2), val = 0, error = er)
-    }
-
-    cutoffs[[param]] <- pos
   }
 
   return(cutoffs)
+}
+
+get_single_cutoff <- function(mix, i1, i2, er = 1e-4) {
+  pro1 <- mix$pro[i1]
+  pro2 <- mix$pro[i2]
+  mean1 <- mix$mean[i1]
+  mean2 <- mix$mean[i2]
+  sd1 <- sqrt(mix$variance$sigmasq[i1])
+  sd2 <- sqrt(mix$variance$sigmasq[i2])
+
+  f <- function(x) pro1 * dnorm(x,mean1,sd1) - pro2 * dnorm(x,mean2,sd2)
+  pos <- binary_search(f, range = c(mean1, mean2), val = 0, error = er)
+
+  if (abs(pos - mean1) < er) {
+    pos <- binary_search(f, range = c(mean1-sd1, mean1), val = 0, error = er)
+  }
+  if (abs(pos - mean2) < er) {
+    pos <- binary_search(f, range = c(mean2, mean2+sd2), val = 0, error = er)
+  }
+
+  return(unname(pos))
 }
 
 
@@ -110,22 +108,21 @@ categorical_merging <- function(pros, means, sigmas, cutoffs, params)
   for (param in params) {
     if (is.null(cutoffs[[param]])) {
       for (i in seq(n)) {
-        categs[i] <- paste(categs[i], "-", sep = "")
+        categs[i] <- paste(categs[i], 1, sep = "")
       }
       next
     }
 
-    v <- means[,param] - cutoffs[[param]]
     for (i in seq(n)) {
-      if (v[i]<0) {
-        categs[i] <- paste(categs[i], "-", sep = "")
-      } else {
-        categs[i] <- paste(categs[i], "+", sep = "")
-      }
+      j <- 1
+      while(j <= length(cutoffs[[param]]) && means[i,param] > cutoffs[[param]][j])
+        j <- j+1
+      categs[i] <- paste(categs[i], j, sep = "")
     }
   }
 
   un <- unique(categs)
+
   for (i in seq(n)) {
     cat_mapping[i] <- which(un == categs[i])
   }
@@ -133,7 +130,7 @@ categorical_merging <- function(pros, means, sigmas, cutoffs, params)
   centers <- get_cluster_means(un, params, cat_mapping, pros, means)
   sds <- get_cluster_sds(un, params, cat_mapping, pros, means, sigmas, centers)
   phenotypes <- get_unique_phenotypes(params, un)
-  cutoffs <- vapply(cutoffs, unname, numeric(1))
+  # cutoffs <- vapply(cutoffs, unname, numeric(1))
 
   l <- list(phenotypes = phenotypes, mixture_to_cluster = cat_mapping,
             centers = centers, sds = sds, cutoffs = cutoffs)

@@ -6,10 +6,6 @@
 #####################################
 #####################################
 
-
-
-
-
 get_weighted_subsample <- function(data, bin_summary, params,
                                    min_bin_size, max_bin_size,
                                    verbose)
@@ -33,18 +29,18 @@ get_weighted_subsample <- function(data, bin_summary, params,
 
 
 get_init <- function(data, bin_summary, params,
-                     min_bin_size, mixture_components,
+                     min_cluster_size, mixture_components,
                      verbose)
 {
-  large_bins <- which(bin_summary$bins_sorted >= min_bin_size)
+  large_bins <- which(bin_summary$bins_sorted >= min_cluster_size)
   bins <- as.integer(names(bin_summary$bins_sorted)[large_bins])
   sizes <- as.vector(bin_summary$bins_sorted)[large_bins]
 
   candidate_bins <- seq_len(mixture_components)
-  init_bins <- which(sizes[candidate_bins] > 3 * min_bin_size)
+  init_bins <- which(sizes[candidate_bins] > min_cluster_size)
   lost <- length(candidate_bins) - length(init_bins)
-  if (lost > 0) cat("Warning: dropped", lost,
-                    "mixture components due to too few events.\n")
+  if (lost > 0) warning(paste("Dropped", lost,
+                    "mixture components due to too few events."))
 
   populous <- which(bin_summary$predictions %in% bins[init_bins])
   init_parameters <- find_bin_mean(data = data,
@@ -60,21 +56,78 @@ get_init <- function(data, bin_summary, params,
   mixture <- list()
   mixture$pro <- sizes[init_bins]
   mixture$mean <- init_parameters$means
-  mixture$variance$sigma <- array(NaN, c(d,d,mixture_components))
+  mixture$variance$sigma <- array(NaN, c(d,d,length(init_bins)))
 
   for (component in init_bins) {
     sigma <- init_parameters$variances[component,,]
+    sigma <- sigma + 0.01 * diag(d) # regularization
     mixture$variance$sigma[,,component] <- sigma
   }
+
 
   return(mixture)
 }
 
-
+# find_bin_mean <- function(data, predictions, bins, sizes, params,
+#                                selected, split_threshold = NULL,
+#                                parallel = FALSE, verbose = FALSE)
+# {
+#   n <- nrow(data)
+#   k <- length(bins)
+#   d <- length(params)
+#
+#   if(is.null(split_threshold)) {
+#     n_repr <- rep(1, k)
+#     split_box_sizes <- sizes
+#   } else {
+#     var_splits <- ceiling(log(sizes/(10 * split_threshold), base = 2))
+#     var_splits[which(var_splits < 0)] <- 0
+#     kmeans_k <- ceiling(sizes / (split_threshold * 2^var_splits))
+#     n_repr <- kmeans_k * 2^var_splits
+#     split_box_sizes <- integer(sum(n_repr))
+#   }
+#
+#   means <- matrix(nrow = sum(n_repr), ncol = d)
+#   colnames(means) <- params
+#   variances <- array(0, c(sum(n_repr),d,d))
+#
+#   idx <- get_bin_list(bins, sizes, selected, predictions, k)
+#
+#   start <- 1
+#   for (i in seq_len(k)) {
+#     box <- bins[i]
+#     sel <- idx[[box]]
+#
+#     if (n_repr[i] == 1) {
+#       bin_stats <- get_bin_stats(data, sel, params)
+#
+#       split_box_sizes[start] <- bin_stats$s
+#       means[start,] <- bin_stats$m
+#       variances[start,,] <- bin_stats$v
+#     }
+#     else {
+#       splits <- split_by_var(data, params, sel, var_splits[i], kmeans_k[i])
+#       for (ind in seq_along(splits)) {
+#         selspl <- splits[[ind]]
+#         bin_stats <- get_bin_stats(data, sel[selspl], params)
+#
+#         pos <- start + ind - 1
+#         split_box_sizes[pos] <- bin_stats$s
+#         means[pos,] <- bin_stats$m
+#         variances[pos,,] <- bin_stats$v
+#       }
+#     }
+#
+#     start <- start + n_repr[i]
+#   }
+#   l <- list("means" = means, "variances" = variances,
+#             "n_repr" = n_repr, "sizes" = split_box_sizes)
+#   return(l)
+# }
 
 find_bin_mean <- function(data, predictions, bins, sizes, params,
-                               selected, split_threshold = NULL,
-                               parallel = FALSE, verbose = FALSE)
+                          selected, split_threshold = NULL,
+                          parallel = FALSE, verbose = FALSE)
 {
   n <- nrow(data)
   k <- length(bins)
@@ -119,7 +172,6 @@ find_bin_mean <- function(data, predictions, bins, sizes, params,
   return(l)
 }
 
-
 get_bin_list <- function(bins, sizes, selected, predictions, k)
 {
   idx <- vector("list", k)
@@ -142,6 +194,35 @@ get_bin_list <- function(bins, sizes, selected, predictions, k)
   return(idx)
 }
 
+# get_bin_stats <- function(data, sel, params) {
+#   s <- length(sel)
+#   m <- apply(data[sel,params,drop=FALSE], 2, mean)
+#
+#   if(length(sel)==1)
+#     v <- matrix(0, nrow=length(params), ncol=length(params))
+#   else
+#     v <- var(data[sel,params,drop=FALSE])
+#
+#   return(list(s=s, m=m, v=v))
+# }
+#
+# split_by_var <- function(data, params, sel, var_splits, kmeans_k) {
+#   if (var_splits <= 0) {
+#     km <- kmeans(x = data[sel,params,drop=FALSE], centers = kmeans_k)
+#     l <- lapply(seq(kmeans_k), function(i) {which(km$cluster == i)})
+#     return(l)
+#   }
+#
+#   ind <- which.max(apply(data[sel,params, drop = FALSE], 2, sd))
+#   param <- params[ind]
+#   med <- median(data[sel,param])
+#   sel1 <- sel[which(data[sel,param] < med)]
+#   l1 <- split_by_var(data,params,sel1,var_splits - 1, kmeans_k)
+#   sel2 <- sel[which(data[sel,param] >= med)]
+#   l2 <- split_by_var(data,params,sel2,var_splits - 1, kmeans_k)
+#   return(c(l1,l2))
+# }
+
 
 split_bin_kmeans <- function(data, params, sel, k)
 {
@@ -158,6 +239,18 @@ split_bin_kmeans <- function(data, params, sel, k)
 
   return(km)
 }
+
+
+# split_by_kmeans <- function(data,params,sel,split_threshold) {
+#   km <- kmeans(x = data[sel,params,drop=FALSE], centers = k)
+#
+#   for (i in seq(k)) {
+#     cl <- which(km$cluster == i)
+#     m <- mean(data[sel[cl],params,drop=FALSE])
+#     s <- length(cl)
+#     v <- var(data[sel[cl],params,drop=FALSE])
+#   }
+# }
 
 
 compute_bin_variance <- function(data, params, sel, n_repr, start, km,
@@ -224,12 +317,22 @@ find_to_merge <- function(mixtures, params, negative_threshold = 0.5,
 map_events_to_bins <- function(data, cutoffs)
 {
   params  <- names(cutoffs)
-  cutoffs <- as.numeric(cutoffs)
 
-  mapping <- t(t(data[,params]) - cutoffs) # inelegant, but faster than sweep
-  mapping[mapping >  0] <- 2L
-  mapping[mapping <= 0] <- 1L
-  mode(mapping) <- "integer"
+  mapping <- matrix(1L, nrow = nrow(data), ncol = length(params))
+  for (i in seq_along(params)) {
+    param <- params[i]
+
+    nCutoffs <- length(cutoffs[[param]])
+    for (j in seq(nCutoffs)) {
+      cutoff <- cutoffs[[param]][j]
+      mapping[which(data[,param] > cutoff),i] <- as.integer(j + 1)
+    }
+  }
+
+  # mapping <- t(t(data[,params]) - cutoffs) # inelegant, but faster than sweep
+  # mapping[mapping >  0] <- 2L
+  # mapping[mapping <= 0] <- 1L
+  # mode(mapping) <- "integer"
 
   bins <- apply(mapping, 1, function(x) {paste(x, collapse = "")})
   bin_summary <- get_bin_summary(bins)
@@ -362,7 +465,7 @@ learn_1D_mixtures_parallel <- function(data, max_mixture, prior_BIC)
 }
 
 
-learn_1D_mixtures_sequential <- function(data, max_mixture, prior_BIC, verbose)
+learn_1D_mixtures_sequential <- function(data, max_mixture, use_ICL, verbose)
 {
   fit_list <- list()
 
@@ -372,22 +475,47 @@ learn_1D_mixtures_sequential <- function(data, max_mixture, prior_BIC, verbose)
     dat <- data[,param]
 
     # Use Bayesian information criterion to choose best k
-    BIC <- mclustBIC(dat, G = seq_len(max_mixture),
-                     modelNames = "V", verbose = FALSE)
 
-    # A tweak to favor smaller k
-    for (k in seq_len(max_mixture)) {
-      BIC[k] <- BIC[k] - prior_BIC*k*log(length(dat), base = 2)
+    if (use_ICL) {
+      ICL <- mclust::mclustICL(dat, G = seq_len(max_mixture),
+                               modelNames = "V", verbose = FALSE)
+      G <- which.max(ICL)
+      fit <- Mclust(dat, G = G, modelNames = "V", verbose = FALSE)
+    } else {
+      BIC <- mclustBIC(dat, G = seq_len(max_mixture),
+                       modelNames = "V", verbose = FALSE)
+
+      # Bias for fewer clusters
+      for (k in seq_len(max_mixture)) {
+        bias_BIC <- exp(-3.7 + 0.732 * log( nrow(data)))
+        BIC[k] <- BIC[k] - bias_BIC*k*log(length(dat), base = 2)
+        fit <- Mclust(dat, x = BIC, verbose = FALSE)
+      }
     }
 
+    # # Bias for more clusters
+    # for (k in seq_len(max_mixture)) {
+    #   npar <- 3 * k - 1
+    #   ICL[k] <- ICL[k] + bias_ICL * log(length(dat)) * npar
+    # }
+    #
+    # print(ICL)
+    #
+    # A tweak to favor smaller k
+
     # Fit the model with the chosen k
-    fit <- Mclust(dat, x=BIC, verbose = FALSE)
+    # fit <- Mclust(dat, G = G, modelNames = "V", verbose = FALSE)
+    # fit <- Mclust(dat, x = BIC, verbose = FALSE)
+    ord <- order(fit$parameters$mean)
+    fit$parameters$mean <- unname(fit$parameters$mean[ord])
+    fit$parameters$pro <- fit$parameters$pro[ord]
+    fit$parameters$variance$sigmasq <- fit$parameters$variance$sigmasq[ord]
+    fit$parameters$variance$scale <- fit$parameters$variance$scale[ord]
     fit_list[[param]] <- fit$parameters
   }
 
   return(fit_list)
 }
-
 
 
 

@@ -8,9 +8,10 @@ tailor_learn(
   data,
   params = NULL,
   mixtures_1D = NULL,
-  mixture_components = 200,
+  mixture_components = 100,
   min_bin_size = NULL,
   max_bin_size = NULL,
+  min_cluster_fraction = 0.001,
   parallel = FALSE,
   verbose = 0.5
 )
@@ -42,6 +43,10 @@ the prediction phase.}
 are split, to ensure that the
 weighted EM algorithm closely approximates a run of vanilla
 EM on the entire dataset.}
+
+\item{min_cluster_fraction}{Mixture components whose size is
+smaller than this fraction are dropped from further analysis,
+and a warning is returned.}
 
 \item{parallel}{Boolean flag; if true, uses multithreading
 to speed up computation.}
