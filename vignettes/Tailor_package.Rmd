@@ -128,7 +128,7 @@ If available, load a file containing definitions of major phenotypes (e.g. Naive
 You need to provide a relative measure of fluorescence intensity: "lo", "hi", "dc"(= "don't care"), 
 and Tailor chooses thresholds adaptively based on the data.
 
-We can use this to enhance the Tailor object, labeling each categorical cluster by a major phenotype.
+We can use this to enhance the Tailor object with annotations for each categorical cluster.
 
 ```{r categorical_labeling}
 defsfile <- system.file("extdata", "pheno_definitions.csv", package = "Tailor")
@@ -136,6 +136,7 @@ defs <- read.csv(defsfile, row.names = 1, stringsAsFactors=FALSE)
 defs
 
 tailor_obj <- categorical_labeling(tailor_obj, defs)
+tailor_obj$cat_clusters$labels
 ```
 
 Given the Tailor object computed with `tailor_learn()`, we can use `tailor_predict()` to assign 
@@ -185,24 +186,19 @@ mixtures_1D <- get_1D_mixtures(data, tailor_params,
 inspect_1D_mixtures(data, mixtures_1D, tailor_params)
 ```
 
-Most of the 1D models look reasonable. But, given some domain knowledge, it may seem more reasonable to
-model CD27 as one mixture component instead of two, and CD14 as two mixture components instead of 
-three. We can use the method `customize_1D_mixtures()` to update a user-specified 
+Most of the 1D models look reasonable. But CD8 would make more sense with two components instead of three. We can use the method `customize_1D_mixtures()` to update a user-specified 
 list of parameters. Compare the result to the previous models for CD27 and CD14 above.
 
 ```{r customize_1D_mixtures, fig.width=8, fig.height=4}
-to_customize <- list("CD27AF700" = 1, "CD14Q800" = 2)
+to_customize <- list("CD8Q705" = 2)
 mixtures_1D <- customize_1D_mixtures(data, to_customize, mixtures_1D, verbose = TRUE)
 inspect_1D_mixtures(data, mixtures_1D, names(to_customize))
 ```
 
 We can pass the 1D mixtures created above as an argument to `tailor_learn()`, and they will be used 
-in the binning process. We can also specify some 1D mixture components that should be merged in the 
-same bin, if we have grounds to believe that they represent the same biological population.
+in the binning process.
 
 ```{r learn_advanced}
-# mixtures_1D$to_merge <- list("CD11BAPCCY7"= c(1,2), "CD45RAQ655" = c(1,2), "CD27AF700" = c(2,3))
-
 tailor_obj <- tailor_learn(data = data,
                           params = tailor_params,
                           mixtures_1D = mixtures_1D,
